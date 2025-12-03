@@ -1,0 +1,52 @@
+/* Light Theme Variables */
+:root {
+/* Light theme */
+  --color-primary: 56 112 230;
+  --color-on-primary: 255 255 255;
+  --color-bg: 240 242 245;
+  --color-surface-1: 249 250 252;
+  --color-surface-2: 253 253 255;
+  --color-surface-hover-1: 220 222 226;
+  --color-surface-hover-2: 242 243 245;
+  --color-text: 43 46 50;
+  --color-headline: 20 22 26;
+  --color-muted: 111 114 119;
+  --color-border: 171 174 180;
+  --color-divider: 227 228 231;
+  --color-success: 46 125 50;
+  --color-warning: 237 108 2;
+  --color-error: 211 47 47;
+  --color-info: 2 136 209;
+}
+/* -----------------------------------------------------------
+   Light Theme Custom Scrollbar
+   ----------------------------------------------------------- */
+.scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--color-muted) / 0.2) transparent;
+}
+.scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+.scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-muted) / 0.2);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+.scrollbar:hover::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-muted) / 0.3);
+  background-clip: padding-box;
+}
+.scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-muted) / 0.4);
+  background-clip: padding-box;
+}
+.scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
