@@ -1,22 +1,22 @@
 /* Light Theme Variables */
 :root {
-/* Light theme */
+
   --color-primary: 56 112 230;
   --color-on-primary: 255 255 255;
-  --color-bg: 240 242 245;
-  --color-surface-1: 249 250 252;
-  --color-surface-2: 253 253 255;
-  --color-surface-hover-1: 220 222 226;
-  --color-surface-hover-2: 242 243 245;
-  --color-text: 43 46 50;
-  --color-headline: 20 22 26;
-  --color-muted: 111 114 119;
-  --color-border: 171 174 180;
-  --color-divider: 227 228 231;
-  --color-success: 46 125 50;
-  --color-warning: 237 108 2;
-  --color-error: 211 47 47;
-  --color-info: 2 136 209;
+  --color-bg: 227 231 238; /* neutral-150 (tinted with primary) */
+  --color-surface-1: 234 238 246; /* neutral-100 (tinted with primary) */
+  --color-surface-2: 239 243 250; /* neutral-50 (tinted with primary) */
+  --color-surface-hover-1: 219 223 230; /* neutral-200 (tinted with primary) */
+  --color-surface-hover-2: 227 231 238; /* neutral-150 (tinted with primary) */
+  --color-text: 38 38 38; /* neutral-800 */
+  --color-headline: 10 10 10; /* neutral-950 */
+  --color-muted: 115 115 115; /* neutral-500 */
+  --color-border: 155 159 166; /* neutral-400 (tinted with primary) */
+  --color-divider: 179 182 189; /* neutral-350 (tinted with primary) */
+  --color-success: 0 166 62; /* green-600 */
+  --color-warning: 225 113 0; /* amber-600 */
+  --color-error: 231 0 11; /* red-600 */
+  --color-info: 0 132 209; /* sky-600 */
 }
 /* -----------------------------------------------------------
    Light Theme Custom Scrollbar
