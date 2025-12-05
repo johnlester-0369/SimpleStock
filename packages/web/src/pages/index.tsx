@@ -1,0 +1,136 @@
+import React, { useState } from 'react'
+import Card from '@/components/ui/Card'
+import Input from '@/components/ui/Input'
+import Button from '@/components/ui/Button'
+import Alert from '@/components/ui/Alert'
+import { BrandLogo, BrandName } from '@/components/common/Brand'
+import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react'
+
+const UserLogin: React.FC = () => {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [loginError, setLoginError] = useState<string>('')
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setLoginError('')
+    setLoading(true)
+
+    try {
+      // Static: Add your login logic here
+      console.log('Login attempt:', { email, password, rememberMe })
+    } catch (err) {
+      console.error('Login failed:', err)
+      setLoginError('Invalid credentials. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-bg flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md shadow-soft">
+        <Card.Root>
+          {/* Brand Section */}
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <BrandLogo size="lg" />
+            <BrandName />
+          </div>
+
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-headline mb-2">
+              Welcome Back
+            </h1>
+            <p className="text-text">Sign in to your account to continue</p>
+          </div>
+
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="space-y-6">
+              {loginError && (
+                <Alert
+                  variant="error"
+                  title="Login Failed"
+                  message={loginError}
+                  onClose={() => setLoginError('')}
+                />
+              )}
+
+              <div className="grid gap-1">
+                <Input
+                  type="email"
+                  name="email"
+                  label="Email Address"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  leftIcon={<Mail className="h-5 w-5" />}
+                  disabled={loading}
+                  autoComplete="email"
+                />
+              </div>
+
+              <div className="grid gap-1">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  label="Password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  leftIcon={<Lock className="h-5 w-5" />}
+                  rightIcon={
+                    showPassword ? (
+                      <EyeOff
+                        className="h-5 w-5 cursor-pointer"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => !loading && setShowPassword(false)}
+                      />
+                    ) : (
+                      <Eye
+                        className="h-5 w-5 cursor-pointer"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => !loading && setShowPassword(true)}
+                      />
+                    )
+                  }
+                  disabled={loading}
+                  autoComplete="current-password"
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    disabled={loading}
+                    className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-surface-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer transition-colors"
+                  />
+                  <span className="text-text">Remember me</span>
+                </label>
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                isLoading={loading}
+                leftIcon={!loading ? <LogIn className="h-5 w-5" /> : undefined}
+                className="w-full"
+              >
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </div>
+          </form>
+        </Card.Root>
+      </div>
+    </div>
+  )
+}
+
+export default UserLogin
