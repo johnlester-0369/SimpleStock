@@ -1,5 +1,6 @@
 import React from 'react'
 import Logo from '@/assets/logo.svg?react'
+import { APP_NAME } from '@/constants/app.constants'
 
 type BrandLogoSize = 'sm' | 'md' | 'lg'
 
@@ -25,7 +26,7 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ size = 'lg' }) => {
 const BrandName: React.FC = () => {
   return (
     <span className="whitespace-nowrap font-bold text-xl text-headline">
-      SimpleStock
+      {APP_NAME}
     </span>
   )
 }
