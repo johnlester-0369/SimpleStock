@@ -18,7 +18,7 @@ export interface InputProps
 }
 
 const base =
-  'w-full rounded-lg border-2 bg-surface-1 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-muted'
+  'w-full rounded-lg border-2 bg-surface-2 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-muted'
 
 const variantClasses: Record<InputVariant, string> = {
   default: 'border-border text-text focus:border-primary',
