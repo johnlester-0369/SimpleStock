@@ -148,8 +148,8 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
           aria-haspopup="true"
           aria-label="User menu"
         >
-          {/* User Name - Hidden on small screens */}
-          <span className="hidden md:block text-sm font-medium text-headline max-w-[120px] truncate">
+          {/* User Name - Always visible with truncation for overflow */}
+          <span className="text-sm font-medium text-headline max-w-[120px] truncate">
             {CURRENT_USER.name}
           </span>
 
