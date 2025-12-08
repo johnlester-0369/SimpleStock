@@ -141,7 +141,7 @@ const SupplierPage: React.FC = () => {
   const [isEditSupplierOpen, setIsEditSupplierOpen] = useState(false)
   const [isDeleteSupplierOpen, setIsDeleteSupplierOpen] = useState(false)
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
-    null
+    null,
   )
   const [supplierForm, setSupplierForm] =
     useState<SupplierFormState>(EMPTY_SUPPLIER_FORM)
@@ -155,7 +155,7 @@ const SupplierPage: React.FC = () => {
       (supplier) =>
         supplier.name.toLowerCase().includes(query) ||
         supplier.contactPerson.toLowerCase().includes(query) ||
-        supplier.email.toLowerCase().includes(query)
+        supplier.email.toLowerCase().includes(query),
     )
   }, [suppliers, searchQuery])
 
@@ -257,8 +257,8 @@ const SupplierPage: React.FC = () => {
               phone: validatedData.phone,
               address: validatedData.address || '',
             }
-          : s
-      )
+          : s,
+      ),
     )
     setIsEditSupplierOpen(false)
     setSelectedSupplier(null)
@@ -333,7 +333,6 @@ const SupplierPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-headline flex items-center gap-2">
-              <Truck className="h-6 w-6" />
               Supplier Management
             </h1>
             <p className="mt-1 text-muted">

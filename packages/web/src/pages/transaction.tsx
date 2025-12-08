@@ -196,7 +196,7 @@ const TransactionPage: React.FC = () => {
         const saleDate = new Date(
           sale.date.getFullYear(),
           sale.date.getMonth(),
-          sale.date.getDate()
+          sale.date.getDate(),
         )
         matchesDateFilter = saleDate.getTime() === today.getTime()
       } else if (dateFilter === 'week') {
@@ -218,7 +218,7 @@ const TransactionPage: React.FC = () => {
    */
   const sortedSales = useMemo(() => {
     return [...filteredSales].sort(
-      (a, b) => b.date.getTime() - a.date.getTime()
+      (a, b) => b.date.getTime() - a.date.getTime(),
     )
   }, [filteredSales])
 
@@ -236,11 +236,11 @@ const TransactionPage: React.FC = () => {
   const summaryStats = useMemo(() => {
     const totalRevenue = filteredSales.reduce(
       (sum, sale) => sum + sale.totalAmount,
-      0
+      0,
     )
     const totalItems = filteredSales.reduce(
       (sum, sale) => sum + sale.quantity,
-      0
+      0,
     )
     const averageOrder =
       filteredSales.length > 0 ? totalRevenue / filteredSales.length : 0
@@ -256,8 +256,7 @@ const TransactionPage: React.FC = () => {
   /**
    * Check if any filters are active
    */
-  const hasActiveFilters =
-    searchQuery.trim() !== '' || dateFilter !== 'all'
+  const hasActiveFilters = searchQuery.trim() !== '' || dateFilter !== 'all'
 
   /**
    * Clear all filters
@@ -316,7 +315,6 @@ const TransactionPage: React.FC = () => {
         {/* Page Header */}
         <div>
           <h1 className="text-2xl font-bold text-headline flex items-center gap-2">
-            <ArrowLeftRight className="h-6 w-6" />
             Transactions
           </h1>
           <p className="mt-1 text-muted">
@@ -449,7 +447,9 @@ const TransactionPage: React.FC = () => {
         {filteredSales.length === 0 ? (
           <EmptyState
             icon={ArrowLeftRight}
-            title={hasActiveFilters ? 'No transactions found' : 'No transactions yet'}
+            title={
+              hasActiveFilters ? 'No transactions found' : 'No transactions yet'
+            }
             description={
               hasActiveFilters
                 ? 'Try adjusting your search or filter criteria.'
@@ -513,7 +513,7 @@ const TransactionPage: React.FC = () => {
                             'font-medium',
                             sale.totalAmount >= 100
                               ? 'text-success'
-                              : 'text-headline'
+                              : 'text-headline',
                           )}
                         >
                           {formatPrice(sale.totalAmount)}

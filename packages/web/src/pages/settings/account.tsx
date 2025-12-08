@@ -5,16 +5,7 @@ import Input from '@/components/ui/Input'
 import Dialog from '@/components/ui/Dialog'
 import Card from '@/components/ui/Card'
 import Alert from '@/components/ui/Alert'
-import {
-  Pencil,
-  User,
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  Save,
-  UserCircle,
-} from 'lucide-react'
+import { Pencil, User, Mail, Lock, Eye, EyeOff, Save } from 'lucide-react'
 import {
   validateForm,
   userProfileSchema,
@@ -87,8 +78,7 @@ const AccountPage: React.FC = () => {
    * Handle profile form field changes
    */
   const handleProfileFormChange =
-    (field: keyof UserProfile) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (field: keyof UserProfile) => (e: React.ChangeEvent<HTMLInputElement>) => {
       setProfileForm((prev) => ({ ...prev, [field]: e.target.value }))
       if (profileError) setProfileError('')
     }
@@ -195,7 +185,6 @@ const AccountPage: React.FC = () => {
         {/* Page Header */}
         <div>
           <h1 className="text-2xl font-bold text-headline flex items-center gap-2">
-            <UserCircle className="h-6 w-6" />
             Account Settings
           </h1>
           <p className="mt-1 text-muted">
