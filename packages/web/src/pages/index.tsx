@@ -6,6 +6,7 @@ import Alert from '@/components/ui/Alert'
 import PageHead from '@/components/common/PageHead'
 import { BrandLogo, BrandName } from '@/components/common/Brand'
 import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react'
+import { validateForm, loginSchema, type LoginFormData } from '@/utils/validation.util'
 
 const UserLogin: React.FC = () => {
   const [email, setEmail] = useState('')
@@ -18,11 +19,21 @@ const UserLogin: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoginError('')
+
+    // Validate form using Zod
+    const formData: LoginFormData = { email, password }
+    const validation = validateForm(loginSchema, formData)
+
+    if (!validation.success) {
+      setLoginError(validation.error || 'Validation failed')
+      return
+    }
+
     setLoading(true)
 
     try {
       // Static: Add your login logic here
-      console.log('Login attempt:', { email, password, rememberMe })
+      console.log('Login attempt:', { email: validation.data?.email, rememberMe })
     } catch (err) {
       console.error('Login failed:', err)
       setLoginError('Invalid credentials. Please try again.')

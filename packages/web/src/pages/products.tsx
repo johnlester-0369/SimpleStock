@@ -19,6 +19,12 @@ import {
   Filter,
 } from 'lucide-react'
 import { cn } from '@/utils/cn.util'
+import {
+  validateForm,
+  productSchema,
+  createSellProductSchema,
+  type ProductFormData as ZodProductFormData,
+} from '@/utils/validation.util'
 
 /**
  * Product interface defining the structure of a product item
@@ -32,9 +38,9 @@ interface Product {
 }
 
 /**
- * Form data interface for add/edit operations
+ * Form data interface for add/edit operations (string values for form inputs)
  */
-interface ProductFormData {
+interface ProductFormState {
   name: string
   price: string
   stockQuantity: string
@@ -160,7 +166,7 @@ const ITEMS_PER_PAGE = 8
 const LOW_STOCK_THRESHOLD = 5
 
 /** Initial empty form state */
-const EMPTY_FORM: ProductFormData = {
+const EMPTY_FORM: ProductFormState = {
   name: '',
   price: '',
   stockQuantity: '',
@@ -203,6 +209,7 @@ const SUPPLIER_OPTIONS = [
  * - Low stock highlighting (<5 items)
  * - EmptyState component for empty results
  * - Dropdown for supplier selection
+ * - Zod validation for all forms
  */
 const ProductsPage: React.FC = () => {
   // Products state
@@ -224,7 +231,7 @@ const ProductsPage: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
   // Form states
-  const [formData, setFormData] = useState<ProductFormData>(EMPTY_FORM)
+  const [formData, setFormData] = useState<ProductFormState>(EMPTY_FORM)
   const [sellQuantity, setSellQuantity] = useState('1')
   const [formError, setFormError] = useState('')
 
@@ -313,44 +320,39 @@ const ProductsPage: React.FC = () => {
   }
 
   /**
-   * Validate form data for add/edit operations
-   * @returns boolean indicating if form is valid
+   * Validate product form data using Zod
+   * @returns Validated data or null if validation fails
    */
-  const validateForm = (): boolean => {
-    if (!formData.name.trim()) {
-      setFormError('Product name is required')
-      return false
+  const validateProductForm = (): ZodProductFormData | null => {
+    const validation = validateForm(productSchema, {
+      name: formData.name.trim(),
+      price: formData.price,
+      stockQuantity: formData.stockQuantity,
+      supplier: formData.supplier,
+    })
+
+    if (!validation.success) {
+      setFormError(validation.error || 'Validation failed')
+      return null
     }
-    const price = parseFloat(formData.price)
-    if (isNaN(price) || price <= 0) {
-      setFormError('Please enter a valid price greater than 0')
-      return false
-    }
-    const quantity = parseInt(formData.stockQuantity, 10)
-    if (isNaN(quantity) || quantity < 0) {
-      setFormError('Please enter a valid stock quantity (0 or more)')
-      return false
-    }
-    if (!formData.supplier) {
-      setFormError('Please select a supplier')
-      return false
-    }
+
     setFormError('')
-    return true
+    return validation.data as ZodProductFormData
   }
 
   /**
    * Handle adding a new product
    */
   const handleAddProduct = () => {
-    if (!validateForm()) return
+    const validatedData = validateProductForm()
+    if (!validatedData) return
 
     const newProduct: Product = {
       id: `product-${Date.now()}`,
-      name: formData.name.trim(),
-      price: parseFloat(formData.price),
-      stockQuantity: parseInt(formData.stockQuantity, 10),
-      supplier: formData.supplier,
+      name: validatedData.name,
+      price: validatedData.price,
+      stockQuantity: validatedData.stockQuantity,
+      supplier: validatedData.supplier,
     }
 
     setProducts((prev) => [...prev, newProduct])
@@ -377,17 +379,20 @@ const ProductsPage: React.FC = () => {
    * Handle editing an existing product
    */
   const handleEditProduct = () => {
-    if (!selectedProduct || !validateForm()) return
+    if (!selectedProduct) return
+
+    const validatedData = validateProductForm()
+    if (!validatedData) return
 
     setProducts((prev) =>
       prev.map((p) =>
         p.id === selectedProduct.id
           ? {
               ...p,
-              name: formData.name.trim(),
-              price: parseFloat(formData.price),
-              stockQuantity: parseInt(formData.stockQuantity, 10),
-              supplier: formData.supplier,
+              name: validatedData.name,
+              price: validatedData.price,
+              stockQuantity: validatedData.stockQuantity,
+              supplier: validatedData.supplier,
             }
           : p,
       ),
@@ -427,22 +432,21 @@ const ProductsPage: React.FC = () => {
   }
 
   /**
-   * Handle selling a product (reducing stock)
+   * Handle selling a product (reducing stock) with Zod validation
    */
   const handleSellProduct = () => {
     if (!selectedProduct) return
 
-    const quantity = parseInt(sellQuantity, 10)
-    if (isNaN(quantity) || quantity <= 0) {
-      setFormError('Please enter a valid quantity (at least 1)')
+    // Create dynamic schema with max quantity
+    const sellSchema = createSellProductSchema(selectedProduct.stockQuantity)
+    const validation = validateForm(sellSchema, { quantity: sellQuantity })
+
+    if (!validation.success) {
+      setFormError(validation.error || 'Validation failed')
       return
     }
-    if (quantity > selectedProduct.stockQuantity) {
-      setFormError(
-        `Insufficient stock. Only ${selectedProduct.stockQuantity} available.`,
-      )
-      return
-    }
+
+    const quantity = validation.data?.quantity as number
 
     setProducts((prev) =>
       prev.map((p) =>
@@ -477,7 +481,7 @@ const ProductsPage: React.FC = () => {
    * Handle form field changes for Input components
    */
   const handleFormChange =
-    (field: keyof ProductFormData) =>
+    (field: keyof ProductFormState) =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setFormData((prev) => ({ ...prev, [field]: e.target.value }))
       if (formError) setFormError('')

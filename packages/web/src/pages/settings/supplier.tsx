@@ -18,6 +18,11 @@ import {
   Phone,
   MapPin,
 } from 'lucide-react'
+import {
+  validateForm,
+  supplierSchema,
+  type SupplierFormData as ZodSupplierFormData,
+} from '@/utils/validation.util'
 
 /**
  * Supplier interface defining the structure of a supplier
@@ -32,9 +37,9 @@ interface Supplier {
 }
 
 /**
- * Supplier form data interface
+ * Supplier form state interface
  */
-interface SupplierFormData {
+interface SupplierFormState {
   name: string
   contactPerson: string
   email: string
@@ -109,7 +114,7 @@ const INITIAL_SUPPLIERS: Supplier[] = [
 const ITEMS_PER_PAGE = 5
 
 /** Initial empty supplier form */
-const EMPTY_SUPPLIER_FORM: SupplierFormData = {
+const EMPTY_SUPPLIER_FORM: SupplierFormState = {
   name: '',
   contactPerson: '',
   email: '',
@@ -123,7 +128,7 @@ const EMPTY_SUPPLIER_FORM: SupplierFormData = {
  * A dedicated page for managing suppliers featuring:
  * - Supplier List with Add/Edit/Delete functionality
  * - Search and pagination for suppliers
- * - Form validation for all operations
+ * - Zod validation for all operations
  */
 const SupplierPage: React.FC = () => {
   // Supplier states
@@ -135,8 +140,11 @@ const SupplierPage: React.FC = () => {
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false)
   const [isEditSupplierOpen, setIsEditSupplierOpen] = useState(false)
   const [isDeleteSupplierOpen, setIsDeleteSupplierOpen] = useState(false)
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
-  const [supplierForm, setSupplierForm] = useState<SupplierFormData>(EMPTY_SUPPLIER_FORM)
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
+    null
+  )
+  const [supplierForm, setSupplierForm] =
+    useState<SupplierFormState>(EMPTY_SUPPLIER_FORM)
   const [supplierFormError, setSupplierFormError] = useState('')
 
   // Filter suppliers based on search query
@@ -171,47 +179,41 @@ const SupplierPage: React.FC = () => {
   }
 
   /**
-   * Validate supplier form
+   * Validate supplier form using Zod
+   * @returns Validated data or null if validation fails
    */
-  const validateSupplierForm = (): boolean => {
-    if (!supplierForm.name.trim()) {
-      setSupplierFormError('Supplier name is required')
-      return false
+  const validateSupplierForm = (): ZodSupplierFormData | null => {
+    const validation = validateForm(supplierSchema, {
+      name: supplierForm.name.trim(),
+      contactPerson: supplierForm.contactPerson.trim(),
+      email: supplierForm.email.trim(),
+      phone: supplierForm.phone.trim(),
+      address: supplierForm.address.trim(),
+    })
+
+    if (!validation.success) {
+      setSupplierFormError(validation.error || 'Validation failed')
+      return null
     }
-    if (!supplierForm.contactPerson.trim()) {
-      setSupplierFormError('Contact person is required')
-      return false
-    }
-    if (!supplierForm.email.trim()) {
-      setSupplierFormError('Email is required')
-      return false
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(supplierForm.email)) {
-      setSupplierFormError('Please enter a valid email address')
-      return false
-    }
-    if (!supplierForm.phone.trim()) {
-      setSupplierFormError('Phone number is required')
-      return false
-    }
+
     setSupplierFormError('')
-    return true
+    return validation.data as ZodSupplierFormData
   }
 
   /**
    * Handle adding a new supplier
    */
   const handleAddSupplier = () => {
-    if (!validateSupplierForm()) return
+    const validatedData = validateSupplierForm()
+    if (!validatedData) return
 
     const newSupplier: Supplier = {
       id: `supplier-${Date.now()}`,
-      name: supplierForm.name.trim(),
-      contactPerson: supplierForm.contactPerson.trim(),
-      email: supplierForm.email.trim(),
-      phone: supplierForm.phone.trim(),
-      address: supplierForm.address.trim(),
+      name: validatedData.name,
+      contactPerson: validatedData.contactPerson,
+      email: validatedData.email,
+      phone: validatedData.phone,
+      address: validatedData.address || '',
     }
 
     setSuppliers((prev) => [...prev, newSupplier])
@@ -239,18 +241,21 @@ const SupplierPage: React.FC = () => {
    * Handle editing a supplier
    */
   const handleEditSupplier = () => {
-    if (!selectedSupplier || !validateSupplierForm()) return
+    if (!selectedSupplier) return
+
+    const validatedData = validateSupplierForm()
+    if (!validatedData) return
 
     setSuppliers((prev) =>
       prev.map((s) =>
         s.id === selectedSupplier.id
           ? {
               ...s,
-              name: supplierForm.name.trim(),
-              contactPerson: supplierForm.contactPerson.trim(),
-              email: supplierForm.email.trim(),
-              phone: supplierForm.phone.trim(),
-              address: supplierForm.address.trim(),
+              name: validatedData.name,
+              contactPerson: validatedData.contactPerson,
+              email: validatedData.email,
+              phone: validatedData.phone,
+              address: validatedData.address || '',
             }
           : s
       )
@@ -283,7 +288,7 @@ const SupplierPage: React.FC = () => {
    * Handle supplier form field changes
    */
   const handleSupplierFormChange =
-    (field: keyof SupplierFormData) =>
+    (field: keyof SupplierFormState) =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setSupplierForm((prev) => ({ ...prev, [field]: e.target.value }))
       if (supplierFormError) setSupplierFormError('')
@@ -546,7 +551,10 @@ const SupplierPage: React.FC = () => {
       </div>
 
       {/* Edit Supplier Dialog */}
-      <Dialog.Root open={isEditSupplierOpen} onOpenChange={handleCloseEditSupplier}>
+      <Dialog.Root
+        open={isEditSupplierOpen}
+        onOpenChange={handleCloseEditSupplier}
+      >
         <Dialog.Positioner>
           <Dialog.Backdrop />
           <Dialog.Content size="md">

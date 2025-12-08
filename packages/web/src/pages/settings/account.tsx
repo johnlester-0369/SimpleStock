@@ -15,6 +15,13 @@ import {
   Save,
   UserCircle,
 } from 'lucide-react'
+import {
+  validateForm,
+  userProfileSchema,
+  passwordChangeSchema,
+  type UserProfileFormData as ZodUserProfileFormData,
+  type PasswordChangeFormData as ZodPasswordChangeFormData,
+} from '@/utils/validation.util'
 
 /**
  * User profile interface
@@ -25,9 +32,9 @@ interface UserProfile {
 }
 
 /**
- * Password form data interface
+ * Password form state interface
  */
-interface PasswordFormData {
+interface PasswordFormState {
   currentPassword: string
   newPassword: string
   confirmPassword: string
@@ -38,11 +45,11 @@ interface PasswordFormData {
  */
 const INITIAL_USER_PROFILE: UserProfile = {
   name: 'Admin User',
-  email: 'admin@simplestock.com'
+  email: 'admin@simplestock.com',
 }
 
 /** Initial empty password form */
-const EMPTY_PASSWORD_FORM: PasswordFormData = {
+const EMPTY_PASSWORD_FORM: PasswordFormState = {
   currentPassword: '',
   newPassword: '',
   confirmPassword: '',
@@ -54,19 +61,22 @@ const EMPTY_PASSWORD_FORM: PasswordFormData = {
  * A dedicated page for managing user account featuring:
  * - User Profile section with editable fields
  * - Change Password functionality
- * - Form validation for all operations
+ * - Zod validation for all operations
  */
 const AccountPage: React.FC = () => {
   // User profile states
-  const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE)
-  const [profileForm, setProfileForm] = useState<UserProfile>(INITIAL_USER_PROFILE)
+  const [userProfile, setUserProfile] =
+    useState<UserProfile>(INITIAL_USER_PROFILE)
+  const [profileForm, setProfileForm] =
+    useState<UserProfile>(INITIAL_USER_PROFILE)
   const [isProfileEditing, setIsProfileEditing] = useState(false)
   const [profileSuccess, setProfileSuccess] = useState('')
   const [profileError, setProfileError] = useState('')
 
   // Password states
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false)
-  const [passwordForm, setPasswordForm] = useState<PasswordFormData>(EMPTY_PASSWORD_FORM)
+  const [passwordForm, setPasswordForm] =
+    useState<PasswordFormState>(EMPTY_PASSWORD_FORM)
   const [passwordFormError, setPasswordFormError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState('')
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
@@ -84,35 +94,24 @@ const AccountPage: React.FC = () => {
     }
 
   /**
-   * Validate profile form
-   */
-  const validateProfileForm = (): boolean => {
-    if (!profileForm.name.trim()) {
-      setProfileError('Full name is required')
-      return false
-    }
-    if (!profileForm.email.trim()) {
-      setProfileError('Email is required')
-      return false
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(profileForm.email)) {
-      setProfileError('Please enter a valid email address')
-      return false
-    }
-    setProfileError('')
-    return true
-  }
-
-  /**
-   * Save profile changes
+   * Validate and save profile using Zod
    */
   const handleSaveProfile = () => {
-    if (!validateProfileForm()) return
+    const validation = validateForm(userProfileSchema, {
+      name: profileForm.name.trim(),
+      email: profileForm.email.trim(),
+    })
+
+    if (!validation.success) {
+      setProfileError(validation.error || 'Validation failed')
+      return
+    }
+
+    const validatedData = validation.data as ZodUserProfileFormData
 
     setUserProfile({
-      name: profileForm.name.trim(),
-      email: profileForm.email.trim()
+      name: validatedData.name,
+      email: validatedData.email,
     })
     setIsProfileEditing(false)
     setProfileSuccess('Profile updated successfully!')
@@ -140,41 +139,27 @@ const AccountPage: React.FC = () => {
   }
 
   /**
-   * Validate password form
-   */
-  const validatePasswordForm = (): boolean => {
-    if (!passwordForm.currentPassword) {
-      setPasswordFormError('Current password is required')
-      return false
-    }
-    if (!passwordForm.newPassword) {
-      setPasswordFormError('New password is required')
-      return false
-    }
-    if (passwordForm.newPassword.length < 8) {
-      setPasswordFormError('New password must be at least 8 characters')
-      return false
-    }
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordFormError('New passwords do not match')
-      return false
-    }
-    if (passwordForm.currentPassword === passwordForm.newPassword) {
-      setPasswordFormError('New password must be different from current password')
-      return false
-    }
-    setPasswordFormError('')
-    return true
-  }
-
-  /**
-   * Handle password change
+   * Handle password change with Zod validation
    */
   const handleChangePassword = () => {
-    if (!validatePasswordForm()) return
+    const validation = validateForm(passwordChangeSchema, {
+      currentPassword: passwordForm.currentPassword,
+      newPassword: passwordForm.newPassword,
+      confirmPassword: passwordForm.confirmPassword,
+    })
+
+    if (!validation.success) {
+      setPasswordFormError(validation.error || 'Validation failed')
+      return
+    }
 
     // Static: In real app, this would call an API
-    console.log('Password change requested')
+    const validatedData = validation.data as ZodPasswordChangeFormData
+    console.log('Password change requested', {
+      hasCurrentPassword: !!validatedData.currentPassword,
+      hasNewPassword: !!validatedData.newPassword,
+    })
+
     setIsChangePasswordOpen(false)
     resetPasswordForm()
     setPasswordSuccess('Password changed successfully!')
@@ -185,7 +170,7 @@ const AccountPage: React.FC = () => {
    * Handle password form field changes
    */
   const handlePasswordFormChange =
-    (field: keyof PasswordFormData) =>
+    (field: keyof PasswordFormState) =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setPasswordForm((prev) => ({ ...prev, [field]: e.target.value }))
       if (passwordFormError) setPasswordFormError('')
@@ -263,7 +248,9 @@ const AccountPage: React.FC = () => {
                   label="Email Address"
                   type="email"
                   placeholder="Enter your email"
-                  value={isProfileEditing ? profileForm.email : userProfile.email}
+                  value={
+                    isProfileEditing ? profileForm.email : userProfile.email
+                  }
                   onChange={handleProfileFormChange('email')}
                   leftIcon={<Mail className="h-5 w-5" />}
                   disabled={!isProfileEditing}
@@ -310,9 +297,7 @@ const AccountPage: React.FC = () => {
                     </div>
                     <div>
                       <p className="font-medium text-headline">Password</p>
-                      <p className="text-sm text-muted">
-                        Last changed: Never
-                      </p>
+                      <p className="text-sm text-muted">Last changed: Never</p>
                     </div>
                   </div>
                 </div>
