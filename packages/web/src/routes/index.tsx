@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import DashboardPage from '@/pages/dashboard'
 import ProductsPage from '@/pages/products'
 import TransactionPage from '@/pages/transaction'
+import ReportPage from '@/pages/report'
 import AccountPage from '@/pages/settings/account'
 import SupplierPage from '@/pages/settings/supplier'
 
@@ -39,6 +40,16 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <TransactionPage />,
+      },
+    ],
+  },
+  {
+    path: '/report',
+    element: <DashboardLayout />,
+    children: [
+      {
+        index: true,
+        element: <ReportPage />,
       },
     ],
   },
