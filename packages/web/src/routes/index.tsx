@@ -3,6 +3,7 @@ import LoginPage from '@/pages/index.tsx'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import DashboardPage from '@/pages/dashboard'
 import ProductsPage from '@/pages/products'
+import TransactionPage from '@/pages/transaction'
 import AccountPage from '@/pages/settings/account'
 import SupplierPage from '@/pages/settings/supplier'
 
@@ -28,6 +29,16 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <ProductsPage />,
+      },
+    ],
+  },
+  {
+    path: '/transaction',
+    element: <DashboardLayout />,
+    children: [
+      {
+        index: true,
+        element: <TransactionPage />,
       },
     ],
   },
