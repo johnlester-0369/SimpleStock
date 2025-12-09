@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import PageHead from '@/components/common/PageHead'
 import Table from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
@@ -203,6 +204,7 @@ const SUPPLIER_OPTIONS = [
  * - Horizontal scrolling table for responsive design
  * - Search/filter by name or supplier
  * - Dropdown filters for stock status and supplier
+ * - URL parameter support for pre-filtering (e.g., ?filter=low-stock)
  * - Pagination (8 items per page) using Table.Pagination
  * - Add, Edit, Delete product dialogs
  * - Sell product functionality
@@ -212,6 +214,9 @@ const SUPPLIER_OPTIONS = [
  * - Zod validation for all forms
  */
 const ProductsPage: React.FC = () => {
+  // URL search params for filter navigation (supports dashboard links)
+  const [searchParams] = useSearchParams()
+
   // Products state
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS)
   const [searchQuery, setSearchQuery] = useState('')
@@ -234,6 +239,15 @@ const ProductsPage: React.FC = () => {
   const [formData, setFormData] = useState<ProductFormState>(EMPTY_FORM)
   const [sellQuantity, setSellQuantity] = useState('1')
   const [formError, setFormError] = useState('')
+
+  // Sync stock filter from URL params (supports dashboard "View All" links)
+  useEffect(() => {
+    const filterParam = searchParams.get('filter')
+    const validFilterValues = STOCK_FILTER_OPTIONS.map((opt) => opt.value)
+    if (filterParam && validFilterValues.includes(filterParam)) {
+      setStockFilter(filterParam)
+    }
+  }, [searchParams])
 
   // Generate supplier filter options dynamically from products
   const supplierFilterOptions = useMemo(() => {
@@ -298,7 +312,7 @@ const ProductsPage: React.FC = () => {
     supplierFilter !== 'all'
 
   // Reset to first page when search or filters change
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentPage(1)
   }, [searchQuery, stockFilter, supplierFilter])
 
