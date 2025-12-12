@@ -100,10 +100,12 @@ const EmptyState: React.FC<EmptyStateProps> = ({
         config.wrapper,
         className,
       )}
+      data-testid="empty-state-wrapper"
     >
       <div className="max-w-sm mx-auto">
         {Icon && (
           <div
+            data-testid="empty-state-icon-wrapper"
             className={cn(
               'rounded-full bg-muted/10 flex items-center justify-center mx-auto',
               config.iconWrapper,
@@ -114,7 +116,9 @@ const EmptyState: React.FC<EmptyStateProps> = ({
         )}
         <h3 className={cn('text-headline', config.title)}>{title}</h3>
         {description && (
-          <p className={cn('text-muted', config.description)}>{description}</p>
+          <p className={cn('text-muted', config.description)} data-testid="empty-state-description">
+            {description}
+          </p>
         )}
         {action && (
           <Button

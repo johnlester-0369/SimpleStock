@@ -7,21 +7,28 @@ type DropdownSize = 'sm' | 'md' | 'lg'
 type DropdownVariant = 'default' | 'primary' | 'ghost'
 type MenuPosition = 'left' | 'right'
 
+// Updated interface to support regular options and separators
 export interface DropdownOption {
   value: string
   label: string
   icon?: React.ReactNode
   disabled?: boolean
-  divider?: boolean
 }
 
+export interface DropdownSeparator {
+  type: 'separator'
+}
+
+export type DropdownItem = DropdownOption | DropdownSeparator
+
 export interface DropdownProps {
-  options: DropdownOption[]
+  options: DropdownItem[]
   value?: string
   defaultValue?: string
   onChange?: (value: string) => void
   placeholder?: string
   label?: string
+  id?: string
   disabled?: boolean
   size?: DropdownSize
   variant?: DropdownVariant
@@ -63,6 +70,7 @@ const Dropdown: React.FC<DropdownProps> = ({
   onChange,
   placeholder = 'Select an option',
   label,
+  id,
   disabled = false,
   size = 'md',
   variant = 'default',
@@ -88,7 +96,9 @@ const Dropdown: React.FC<DropdownProps> = ({
   const isControlled = controlledValue !== undefined
   const value = isControlled ? controlledValue : internalValue
 
-  const selectedOption = options.find((opt) => opt.value === value)
+  const selectedOption = options.find(
+    (opt): opt is DropdownOption => 'value' in opt && opt.value === value,
+  )
 
   // Calculate menu position when opened
   useEffect(() => {
@@ -171,13 +181,14 @@ const Dropdown: React.FC<DropdownProps> = ({
     }
   }, [isOpen])
 
+  // Filter only selectable options for keyboard navigation
+  const selectableOptions = options.filter(
+    (opt): opt is DropdownOption => 'value' in opt && !opt.disabled,
+  )
+
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (disabled) return
-
-    const enabledOptions = options.filter(
-      (opt) => !opt.disabled && !opt.divider,
-    )
 
     switch (e.key) {
       case 'Enter':
@@ -186,8 +197,8 @@ const Dropdown: React.FC<DropdownProps> = ({
         if (!isOpen) {
           setIsOpen(true)
           setFocusedIndex(0)
-        } else if (focusedIndex >= 0 && enabledOptions[focusedIndex]) {
-          handleSelect(enabledOptions[focusedIndex].value)
+        } else if (focusedIndex >= 0 && selectableOptions[focusedIndex]) {
+          handleSelect(selectableOptions[focusedIndex].value)
         }
         break
 
@@ -205,7 +216,7 @@ const Dropdown: React.FC<DropdownProps> = ({
           setFocusedIndex(0)
         } else {
           setFocusedIndex((prev) =>
-            prev < enabledOptions.length - 1 ? prev + 1 : prev,
+            prev < selectableOptions.length - 1 ? prev + 1 : 0,
           )
         }
         break
@@ -213,7 +224,9 @@ const Dropdown: React.FC<DropdownProps> = ({
       case 'ArrowUp':
         e.preventDefault()
         if (isOpen) {
-          setFocusedIndex((prev) => (prev > 0 ? prev - 1 : 0))
+          setFocusedIndex((prev) => 
+            prev > 0 ? prev - 1 : selectableOptions.length - 1
+          )
         }
         break
 
@@ -227,7 +240,7 @@ const Dropdown: React.FC<DropdownProps> = ({
       case 'End':
         if (isOpen) {
           e.preventDefault()
-          setFocusedIndex(enabledOptions.length - 1)
+          setFocusedIndex(selectableOptions.length - 1)
         }
         break
 
@@ -243,11 +256,10 @@ const Dropdown: React.FC<DropdownProps> = ({
   // Scroll focused item into view
   useEffect(() => {
     if (isOpen && focusedIndex >= 0 && menuRef.current) {
-      const focusedElement = menuRef.current.children[
-        focusedIndex
-      ] as HTMLElement
-      if (focusedElement) {
-        focusedElement.scrollIntoView({ block: 'nearest' })
+      // Find all option elements and scroll the focused one into view
+      const optionElements = menuRef.current.querySelectorAll('[role="option"]')
+      if (optionElements[focusedIndex]) {
+        (optionElements[focusedIndex] as HTMLElement).scrollIntoView({ block: 'nearest' })
       }
     }
   }, [focusedIndex, isOpen])
@@ -271,9 +283,8 @@ const Dropdown: React.FC<DropdownProps> = ({
     }
   }
 
-  const enabledOptions = options.filter((opt) => !opt.disabled && !opt.divider)
-
   const generatedId = React.useId()
+  const buttonId = id || `dropdown-button-${generatedId}`
   const labelId = `dropdown-label-${generatedId}`
   const menuId = `dropdown-menu-${generatedId}`
 
@@ -309,22 +320,22 @@ const Dropdown: React.FC<DropdownProps> = ({
         menuSizeClasses[size],
       )}
     >
-      {options.map((option, index) => {
-        if (option.divider) {
+      {options.map((item, index) => {
+        // Render separator
+        if ('type' in item && item.type === 'separator') {
           return (
             <li
-              key={`divider-${index}`}
+              key={`separator-${index}`}
               role="separator"
               className="my-1 border-t border-divider"
             />
           )
         }
 
-        const enabledIndex = enabledOptions.findIndex(
-          (opt) => opt.value === option.value,
-        )
-        const isFocused = enabledIndex === focusedIndex
+        // At this point, TypeScript knows item is DropdownOption
+        const option = item as DropdownOption
         const isSelected = option.value === value
+        const isFocused = selectableOptions.findIndex(opt => opt.value === option.value) === focusedIndex
 
         return (
           <li
@@ -347,12 +358,15 @@ const Dropdown: React.FC<DropdownProps> = ({
             }}
             onMouseEnter={() => {
               if (!option.disabled) {
-                setFocusedIndex(enabledIndex)
+                const selectableIndex = selectableOptions.findIndex(
+                  (opt) => opt.value === option.value,
+                )
+                setFocusedIndex(selectableIndex)
               }
             }}
           >
             {showCheck && (
-              <span className="flex items-center shrink-0 w-4 h-4">
+              <span className="flex items-center justify-center shrink-0 w-4 h-4">
                 {isSelected && <Check className="w-4 h-4" />}
               </span>
             )}
@@ -376,6 +390,7 @@ const Dropdown: React.FC<DropdownProps> = ({
       {label && (
         <label
           id={labelId}
+          htmlFor={buttonId}
           className="block text-sm font-medium text-headline mb-2"
         >
           {label}
@@ -384,6 +399,7 @@ const Dropdown: React.FC<DropdownProps> = ({
 
       <button
         ref={buttonRef}
+        id={buttonId}
         type="button"
         onClick={toggleDropdown}
         onKeyDown={handleKeyDown}
