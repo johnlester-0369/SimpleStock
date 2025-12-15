@@ -6,7 +6,6 @@
  *
  * @module config/env.config.ts
  */
-
 import 'dotenv/config';
 
 // ============================================================================
@@ -25,11 +24,26 @@ type NodeEnv = 'development' | 'production' | 'test';
  * must explicitly include undefined in their type.
  */
 interface EnvConfig {
+  // Core application settings
   readonly NODE_ENV: NodeEnv;
   readonly PORT: string;
+  
+  // Logging configuration
   readonly LOG_LEVEL: string;
   readonly LOG_FILE_PATH?: string | undefined;
   readonly ERROR_LOG_FILE_PATH?: string | undefined;
+  
+  // Database configuration
+  readonly MONGODB_URI: string;
+  readonly MONGO_PASSWORD: string;
+  readonly MONGO_URI: string; // Computed: MONGODB_URI with password injected
+  
+  // Authentication configuration
+  readonly BASE_URL: string;
+  readonly AUTH_SECRET_USER: string;
+  readonly TRUSTED_ORIGINS?: string[] | undefined;
+  
+  // Derived boolean helpers
   readonly isDevelopment: boolean;
   readonly isProduction: boolean;
   readonly isTest: boolean;
@@ -99,7 +113,6 @@ function getOptionalEnv(key: string): string | undefined {
  */
 function getNodeEnv(): NodeEnv {
   const value = process.env.NODE_ENV;
-
   if (value === undefined || value === '') {
     throw new Error(
       `[ENV] Missing required environment variable: NODE_ENV\n` +
@@ -107,14 +120,12 @@ function getNodeEnv(): NodeEnv {
         `Please check your .env file or environment configuration`,
     );
   }
-
   if (!VALID_NODE_ENVS.includes(value as NodeEnv)) {
     throw new Error(
       `[ENV] Invalid NODE_ENV value: "${value}"\n` +
         `Valid values are: ${VALID_NODE_ENVS.join(', ')}`,
     );
   }
-
   return value as NodeEnv;
 }
 
@@ -124,7 +135,6 @@ function getNodeEnv(): NodeEnv {
  */
 function getLogLevel(): string {
   const value = process.env.LOG_LEVEL ?? 'info';
-
   if (!VALID_LOG_LEVELS.includes(value as (typeof VALID_LOG_LEVELS)[number])) {
     console.warn(
       `[ENV] Invalid LOG_LEVEL value: "${value}". Using default: "info".\n` +
@@ -132,8 +142,65 @@ function getLogLevel(): string {
     );
     return 'info';
   }
-
   return value;
+}
+
+/**
+ * Parses comma-separated trusted origins into an array.
+ * @param value - Comma-separated string of origins
+ * @returns Array of origins or undefined if empty
+ * 
+ * @example
+ * ```typescript
+ * parseTrustedOrigins('http://localhost:3000,https://app.com')
+ * // Returns: ['http://localhost:3000', 'https://app.com']
+ * ```
+ */
+function parseTrustedOrigins(
+  value: string | undefined,
+): string[] | undefined {
+  if (!value) return undefined;
+  const arr = value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return arr.length > 0 ? arr : undefined;
+}
+
+/**
+ * Builds the complete MongoDB connection URI by replacing the password placeholder.
+ * 
+ * The MONGODB_URI should contain a `<PASSWORD>` placeholder that will be replaced
+ * with the URI-encoded MONGO_PASSWORD value.
+ * 
+ * @param mongodbUri - MongoDB URI template with `<PASSWORD>` placeholder
+ * @param password - Password to be URI-encoded and injected
+ * @returns Complete MongoDB connection URI with encoded password
+ * @throws {Error} If MONGODB_URI doesn't contain `<PASSWORD>` placeholder
+ * 
+ * @example
+ * ```typescript
+ * const uri = buildMongoUri(
+ *   'mongodb+srv://user:<PASSWORD>@cluster0.mongodb.net/db',
+ *   'p@ssw0rd!'
+ * );
+ * // Returns: 'mongodb+srv://user:p%40ssw0rd!@cluster0.mongodb.net/db'
+ * ```
+ */
+function buildMongoUri(mongodbUri: string, password: string): string {
+  if (!mongodbUri.includes('<PASSWORD>')) {
+    throw new Error(
+      `[ENV] MONGODB_URI must contain '<PASSWORD>' placeholder.\n` +
+        `Example: mongodb+srv://username:<PASSWORD>@cluster.mongodb.net/database\n` +
+        `Current value does not contain the placeholder.`,
+    );
+  }
+
+  // URI encode the password to handle special characters
+  const encodedPassword = encodeURIComponent(password);
+  
+  // Replace the placeholder with the encoded password
+  return mongodbUri.replace('<PASSWORD>', encodedPassword);
 }
 
 // ============================================================================
@@ -143,6 +210,10 @@ function getLogLevel(): string {
 // Cache NODE_ENV to avoid multiple validations
 const nodeEnv = getNodeEnv();
 
+// Get database credentials
+const mongodbUri = getRequiredEnv('MONGODB_URI');
+const mongoPassword = getRequiredEnv('MONGO_PASSWORD');
+
 /**
  * Validated environment configuration.
  * Access environment variables through this object for type safety.
@@ -151,8 +222,10 @@ const nodeEnv = getNodeEnv();
  * ```typescript
  * import { env } from '@/config/env.config.js';
  *
- * console.log(env.NODE_ENV);  // 'development' | 'production' | 'test'
- * console.log(env.PORT);      // '3000'
+ * console.log(env.NODE_ENV);      // 'development' | 'production' | 'test'
+ * console.log(env.PORT);          // '3000'
+ * console.log(env.MONGO_URI);     // Complete MongoDB URI with encoded password
+ * console.log(env.BASE_URL);      // 'http://localhost:3000'
  *
  * if (env.isDevelopment) {
  *   // Development-only code
@@ -168,6 +241,16 @@ export const env: EnvConfig = {
   LOG_LEVEL: getLogLevel(),
   LOG_FILE_PATH: getOptionalEnv('LOG_FILE_PATH'),
   ERROR_LOG_FILE_PATH: getOptionalEnv('ERROR_LOG_FILE_PATH'),
+
+  // Database configuration
+  MONGODB_URI: mongodbUri,
+  MONGO_PASSWORD: mongoPassword,
+  MONGO_URI: buildMongoUri(mongodbUri, mongoPassword),
+
+  // Authentication configuration
+  BASE_URL: getRequiredEnv('BASE_URL'),
+  AUTH_SECRET_USER: getRequiredEnv('AUTH_SECRET_USER'),
+  TRUSTED_ORIGINS: parseTrustedOrigins(getOptionalEnv('TRUSTED_ORIGINS')),
 
   // Derived boolean helpers for convenience
   isDevelopment: nodeEnv === 'development',
