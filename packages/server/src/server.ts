@@ -1,5 +1,5 @@
 import { env } from '@/config/env.config.js';
-import { logger } from '@/utils/logger.js';
+import { logger } from '@/utils/logger.util.js';
 import app from '@/app.js';
 
 const PORT = env.PORT;

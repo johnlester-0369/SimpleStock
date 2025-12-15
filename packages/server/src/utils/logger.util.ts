@@ -5,7 +5,7 @@
  * Provides consistent logging across the application with proper formatting,
  * transports, and correlation ID support.
  *
- * @module utils/logger
+ * @module utils/logger.util
  */
 
 import winston from 'winston';
@@ -137,7 +137,7 @@ const logger = winston.createLogger({
  *
  * @example
  * ```typescript
- * import { logger } from '@/utils/logger.js';
+ * import { logger } from '@/utils/logger.util.js';
  *
  * logger.info('Server started', { port: 3000 });
  * logger.error('Database connection failed', { error: err });

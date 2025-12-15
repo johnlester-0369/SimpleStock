@@ -3,7 +3,7 @@ import express, {
   type Response,
   type NextFunction,
 } from 'express';
-import { logger } from '@/utils/logger.js';
+import { logger } from '@/utils/logger.util.js';
 const app = express();
 
 /**
