@@ -4,6 +4,8 @@ import express, {
   type NextFunction,
 } from 'express';
 import { logger } from '@/utils/logger.util.js';
+import { authUser } from '@/lib/auth.lib.js';
+
 const app = express();
 
 /**
@@ -36,6 +38,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
   next();
 });
+
+// === Mount Better-Auth handlers ===
+app.use('/api/v1/user/auth/*', authUser.handler);
 
 app.get('/', (_req: Request, res: Response) => {
   res.send('Welcome to express');
