@@ -2,13 +2,13 @@
  * Server Entry Point
  *
  * Orchestrates application startup:
- * 1. Initialize database connection
+ * 1. Initialize MongoClient connection (for better-auth)
  * 2. Initialize authentication system
- * 3. Create and start Express server
+ * 3. Initialize Mongoose connection (for ODM)
+ * 4. Create and start Express server
  *
- * This ensures proper dependency ordering - the database must be connected
- * before Better Auth can be initialized, and both must be ready before
- * the server starts accepting requests.
+ * This ensures proper dependency ordering and avoids BSON version conflicts
+ * by using separate connections for better-auth (MongoClient) and Mongoose.
  *
  * @module server
  */
@@ -16,7 +16,8 @@
 import { env } from '@/config/env.config.js';
 import { logger } from '@/utils/logger.util.js';
 import { initializeAuth } from '@/lib/auth.lib.js';
-import { disconnectDatabase } from '@/lib/db.lib.js';
+import { connectToDatabase, disconnectDatabase } from '@/lib/db.lib.js';
+import { disconnectMongoClient } from '@/lib/mongo-client.lib.js';
 import { createApp } from '@/app.js';
 
 // ============================================================================
@@ -37,15 +38,19 @@ async function startServer(): Promise<void> {
   try {
     logger.info('Starting application...');
 
-    // Step 1: Initialize auth (which also connects to database)
+    // Step 1: Initialize auth (which connects MongoClient for better-auth)
     logger.info('Initializing authentication system...');
     const auth = await initializeAuth();
 
-    // Step 2: Create Express app with auth
+    // Step 2: Connect Mongoose for ODM operations (separate from better-auth)
+    logger.info('Connecting Mongoose for ODM operations...');
+    await connectToDatabase();
+
+    // Step 3: Create Express app with auth
     logger.info('Creating Express application...');
     const app = createApp(auth);
 
-    // Step 3: Start HTTP server
+    // Step 4: Start HTTP server
     const server = app.listen(PORT, () => {
       logger.info('🚀 Server Started Successfully', {
         port: PORT,
@@ -73,13 +78,23 @@ async function startServer(): Promise<void> {
           logger.info('HTTP server closed');
         }
 
-        // Disconnect from database
+        // Disconnect from databases
         try {
           await disconnectDatabase();
-          logger.info('Database connection closed');
+          logger.info('Mongoose connection closed');
         } catch (dbErr) {
-          logger.error('Error closing database connection', {
+          logger.error('Error closing Mongoose connection', {
             error: dbErr instanceof Error ? dbErr.message : 'Unknown error',
+          });
+        }
+
+        try {
+          await disconnectMongoClient();
+          logger.info('MongoClient connection closed');
+        } catch (clientErr) {
+          logger.error('Error closing MongoClient connection', {
+            error:
+              clientErr instanceof Error ? clientErr.message : 'Unknown error',
           });
         }
 
@@ -96,7 +111,6 @@ async function startServer(): Promise<void> {
     // Register shutdown handlers
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
   } catch (error) {
     logger.error('Failed to start application', {
       error: error instanceof Error ? error.message : 'Unknown error',

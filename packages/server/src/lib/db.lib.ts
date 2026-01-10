@@ -1,12 +1,12 @@
 /**
  * Database Connection Module
  *
- * Manages MongoDB connection using Mongoose with better-auth integration.
- * Exports both the Mongoose connection and native MongoClient for better-auth adapter.
+ * Manages MongoDB connection using Mongoose for ODM functionality.
+ * Note: For better-auth, use the separate mongo-client.lib.ts module
+ * to avoid BSON version conflicts.
  *
  * Features:
  * - Connection caching to prevent multiple connections in dev/HMR
- * - Native MongoClient extraction for better-auth transaction support
  * - Centralized environment configuration
  * - Async initialization pattern for proper startup sequencing
  *
@@ -14,7 +14,6 @@
  */
 
 import mongoose from 'mongoose';
-import type { Db, MongoClient } from 'mongodb';
 import { env } from '@/config/env.config.js';
 import { logger } from '@/utils/logger.util.js';
 
@@ -59,6 +58,9 @@ if (!cached) {
  * Establishes and returns a cached Mongoose connection.
  * In development, reuses existing connections to handle HMR gracefully.
  *
+ * Note: This connection is for Mongoose ODM operations only.
+ * For better-auth, use connectMongoClient() from mongo-client.lib.ts.
+ *
  * @returns Promise resolving to Mongoose instance
  * @throws {Error} If connection fails
  *
@@ -71,7 +73,7 @@ if (!cached) {
 export async function connectToDatabase(): Promise<typeof mongoose> {
   // Return cached connection if available and connected
   if (cached?.conn && mongoose.connection.readyState === 1) {
-    logger.debug('Using cached database connection');
+    logger.debug('Using cached Mongoose connection');
     return cached.conn;
   }
 
@@ -82,14 +84,14 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
       maxPoolSize: 10, // Connection pool size
     };
 
-    logger.info('Establishing new database connection', {
+    logger.info('Establishing Mongoose database connection', {
       uri: MONGO_URI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@'), // Mask credentials
     });
 
     cached!.promise = mongoose
       .connect(MONGO_URI, opts)
       .then((mongooseInstance) => {
-        logger.info('Database connected successfully', {
+        logger.info('Mongoose connected successfully', {
           name: mongooseInstance.connection.name,
           host: mongooseInstance.connection.host,
           readyState: mongooseInstance.connection.readyState,
@@ -97,7 +99,7 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
         return mongooseInstance;
       })
       .catch((err: Error) => {
-        logger.error('Database connection failed', {
+        logger.error('Mongoose connection failed', {
           error: err.message,
           stack: err.stack,
         });
@@ -112,7 +114,7 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
 }
 
 /**
- * Gracefully disconnects from the database.
+ * Gracefully disconnects Mongoose from the database.
  * Should be called during application shutdown.
  *
  * @example
@@ -125,89 +127,20 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
  */
 export async function disconnectDatabase(): Promise<void> {
   if (mongoose.connection.readyState !== 0) {
-    logger.info('Disconnecting from database');
+    logger.info('Disconnecting Mongoose from database');
     await mongoose.disconnect();
     cached!.conn = null;
     cached!.promise = null;
-    logger.info('Database disconnected');
+    logger.info('Mongoose disconnected');
   }
 }
 
-// ============================================================================
-// BETTER-AUTH INTEGRATION
-// ============================================================================
-
 /**
- * Returns the native MongoDB database instance from Mongoose connection.
- * Used by better-auth mongodbAdapter.
+ * Gets the Mongoose connection instance.
+ * Useful for accessing the underlying connection directly.
  *
- * IMPORTANT: Only call this after `connectToDatabase()` has resolved.
- *
- * @returns MongoDB Db instance
- * @throws {Error} If connection is not established
- *
- * @example
- * ```typescript
- * await connectToDatabase();
- * const db = getDb();
- * const adapter = mongodbAdapter(db, { client: getMongoClient() });
- * ```
+ * @returns Mongoose connection
  */
-export function getDb(): Db {
-  const db = mongoose.connection.db;
-  if (!db) {
-    throw new Error(
-      'Database connection not established. Call and await connectToDatabase() first.',
-    );
-  }
-  return db;
-}
-
-/**
- * Returns the native MongoClient from Mongoose connection.
- * Required for better-auth transaction support.
- *
- * IMPORTANT: Only call this after `connectToDatabase()` has resolved.
- *
- * @returns MongoClient instance
- * @throws {Error} If connection is not established
- *
- * @example
- * ```typescript
- * await connectToDatabase();
- * const client = getMongoClient();
- * const adapter = mongodbAdapter(db, { client });
- * ```
- */
-export function getMongoClient(): MongoClient {
-  const client = mongoose.connection.getClient();
-  if (!client) {
-    throw new Error(
-      'Database connection not established. Call and await connectToDatabase() first.',
-    );
-  }
-  return client as MongoClient;
-}
-
-/**
- * Gets database connection details for better-auth adapter.
- * This is the recommended way to get both db and client for better-auth.
- *
- * IMPORTANT: Only call this after `connectToDatabase()` has resolved.
- *
- * @returns Object containing db and mongoClient for better-auth adapter
- * @throws {Error} If connection is not established
- *
- * @example
- * ```typescript
- * await connectToDatabase();
- * const { db, mongoClient } = getDbConnection();
- * const adapter = mongodbAdapter(db, { client: mongoClient });
- * ```
- */
-export function getDbConnection(): { db: Db; mongoClient: MongoClient } {
-  return {
-    db: getDb(),
-    mongoClient: getMongoClient(),
-  };
+export function getMongooseConnection(): mongoose.Connection {
+  return mongoose.connection;
 }

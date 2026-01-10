@@ -2,7 +2,8 @@
  * Authentication Module
  *
  * Configures Better Auth with MongoDB adapter, email/password authentication,
- * and admin plugin. Uses centralized environment configuration.
+ * and admin plugin. Uses a standalone MongoClient to avoid BSON version
+ * conflicts with Mongoose.
  *
  * This module uses async initialization to ensure the database connection
  * is established before creating the auth instance.
@@ -14,7 +15,7 @@ import { betterAuth, type BetterAuthPlugin } from 'better-auth';
 import { admin } from 'better-auth/plugins';
 import { mongodbAdapter } from 'better-auth/adapters/mongodb';
 import { env } from '@/config/env.config.js';
-import { connectToDatabase, getDbConnection } from './db.lib.js';
+import { connectMongoClient } from './mongo-client.lib.js';
 import { logger } from '@/utils/logger.util.js';
 
 // ============================================================================
@@ -36,24 +37,51 @@ export type AuthInstance = ReturnType<typeof betterAuth>;
 let authInstance: AuthInstance | null = null;
 
 // ============================================================================
-// CONFIGURATION
+// PUBLIC API
 // ============================================================================
 
 /**
- * Creates and configures the Better Auth instance.
- * Should only be called after database connection is established.
+ * Initializes the authentication system.
+ * This function ensures the MongoDB connection is established using a
+ * standalone MongoClient (not Mongoose) before creating the Better Auth
+ * instance. This avoids BSON version conflicts.
  *
- * @returns Configured Better Auth instance
+ * This should be called once during application startup, before starting
+ * the HTTP server.
+ *
+ * @returns Promise resolving to the configured auth instance
+ * @throws {Error} If database connection fails
+ *
+ * @example
+ * ```typescript
+ * import { initializeAuth, getAuth } from '@/lib/auth.lib.js';
+ *
+ * // During startup
+ * await initializeAuth();
+ *
+ * // Later, in route handlers
+ * const auth = getAuth();
+ * app.use('/api/v1/user/auth/*', toNodeHandler(auth));
+ * ```
  */
-function createAuthInstance(): AuthInstance {
-  const { db, mongoClient } = getDbConnection();
+export async function initializeAuth(): Promise<AuthInstance> {
+  if (authInstance) {
+    logger.debug('Using cached auth instance');
+    return authInstance;
+  }
 
-  logger.info('Initializing Better Auth with MongoDB adapter');
+  logger.info('Initializing authentication system...');
 
-  return betterAuth({
-    // Database adapter with transaction support
+  // Connect using standalone MongoClient (not Mongoose) to avoid BSON conflicts
+  const { client, db } = await connectMongoClient();
+
+  logger.info('Creating Better Auth instance with MongoDB adapter');
+
+  // Create the auth instance with standalone MongoClient
+  authInstance = betterAuth({
+    // Database adapter with transaction support using standalone client
     database: mongodbAdapter(db, {
-      client: mongoClient,
+      client,
     }),
 
     // Base configuration
@@ -102,48 +130,6 @@ function createAuthInstance(): AuthInstance {
       }) as unknown as BetterAuthPlugin,
     ] as BetterAuthPlugin[],
   });
-}
-
-// ============================================================================
-// PUBLIC API
-// ============================================================================
-
-/**
- * Initializes the authentication system.
- * This function ensures database connection is established before creating
- * the Better Auth instance.
- *
- * This should be called once during application startup, before starting
- * the HTTP server.
- *
- * @returns Promise resolving to the configured auth instance
- * @throws {Error} If database connection fails
- *
- * @example
- * ```typescript
- * import { initializeAuth, getAuth } from '@/lib/auth.lib.js';
- *
- * // During startup
- * await initializeAuth();
- *
- * // Later, in route handlers
- * const auth = getAuth();
- * app.use('/api/v1/user/auth/*', toNodeHandler(auth));
- * ```
- */
-export async function initializeAuth(): Promise<AuthInstance> {
-  if (authInstance) {
-    logger.debug('Using cached auth instance');
-    return authInstance;
-  }
-
-  logger.info('Initializing authentication system...');
-
-  // Ensure database is connected first
-  await connectToDatabase();
-
-  // Create the auth instance
-  authInstance = createAuthInstance();
 
   logger.info('Authentication system initialized successfully');
 

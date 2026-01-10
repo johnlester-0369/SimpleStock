@@ -32,6 +32,7 @@
     "better-auth": "^1.4.7",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "mongodb": "^7.0.0",
     "mongoose": "^9.0.1",
     "winston": "^3.19.0"
   }
