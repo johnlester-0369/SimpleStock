@@ -8,11 +8,13 @@
  * - Connection caching to prevent multiple connections in dev/HMR
  * - Native MongoClient extraction for better-auth transaction support
  * - Centralized environment configuration
+ * - Async initialization pattern for proper startup sequencing
  *
  * @module lib/db.lib
  */
 
 import mongoose from 'mongoose';
+import type { Db, MongoClient } from 'mongodb';
 import { env } from '@/config/env.config.js';
 import { logger } from '@/utils/logger.util.js';
 
@@ -21,6 +23,7 @@ import { logger } from '@/utils/logger.util.js';
 // ============================================================================
 
 declare global {
+  // eslint-disable-next-line no-var -- Required for global augmentation in Node.js
   var _mongooseConnection:
     | {
         conn: typeof mongoose | null;
@@ -66,8 +69,8 @@ if (!cached) {
  * ```
  */
 export async function connectToDatabase(): Promise<typeof mongoose> {
-  // Return cached connection if available
-  if (cached?.conn) {
+  // Return cached connection if available and connected
+  if (cached?.conn && mongoose.connection.readyState === 1) {
     logger.debug('Using cached database connection');
     return cached.conn;
   }
@@ -75,8 +78,8 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
   // Create new connection promise if not exists
   if (!cached?.promise) {
     const opts = {
-      bufferCommands: false, // Disable Mongoose buffering
-      maxPoolSize: 10,       // Connection pool size
+      bufferCommands: false, // Disable Mongoose buffering - we handle connection timing
+      maxPoolSize: 10, // Connection pool size
     };
 
     logger.info('Establishing new database connection', {
@@ -93,7 +96,7 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
         });
         return mongooseInstance;
       })
-      .catch((err) => {
+      .catch((err: Error) => {
         logger.error('Database connection failed', {
           error: err.message,
           stack: err.stack,
@@ -138,112 +141,73 @@ export async function disconnectDatabase(): Promise<void> {
  * Returns the native MongoDB database instance from Mongoose connection.
  * Used by better-auth mongodbAdapter.
  *
- * Note: Type assertion used due to version mismatch between Mongoose's
- * bundled MongoDB driver and standalone mongodb package types.
- * Both are functionally compatible at runtime.
+ * IMPORTANT: Only call this after `connectToDatabase()` has resolved.
  *
  * @returns MongoDB Db instance
  * @throws {Error} If connection is not established
  *
  * @example
  * ```typescript
- * import { getDb } from '@/lib/db.lib.js';
- * import { mongodbAdapter } from 'better-auth/adapters/mongodb';
- *
+ * await connectToDatabase();
  * const db = getDb();
  * const adapter = mongodbAdapter(db, { client: getMongoClient() });
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Type mismatch between Mongoose bundled and standalone MongoDB driver types
-export function getDb(): any {
-  if (!mongoose.connection.db) {
+export function getDb(): Db {
+  const db = mongoose.connection.db;
+  if (!db) {
     throw new Error(
-      'Database connection not established. Call connectToDatabase() first.',
+      'Database connection not established. Call and await connectToDatabase() first.',
     );
   }
-  // Type assertion: Mongoose bundles its own MongoDB driver version
-  // which may differ from the standalone mongodb package types
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Runtime compatibility verified; type-only issue
-  return mongoose.connection.db as any;
+  return db;
 }
 
 /**
  * Returns the native MongoClient from Mongoose connection.
  * Required for better-auth transaction support.
  *
- * Note: Type assertion used due to version mismatch between Mongoose's
- * bundled MongoDB driver and standalone mongodb package types.
- * Both are functionally compatible at runtime.
+ * IMPORTANT: Only call this after `connectToDatabase()` has resolved.
  *
  * @returns MongoClient instance
  * @throws {Error} If connection is not established
  *
  * @example
  * ```typescript
- * import { getMongoClient } from '@/lib/db.lib.js';
- * import { mongodbAdapter } from 'better-auth/adapters/mongodb';
- *
+ * await connectToDatabase();
  * const client = getMongoClient();
  * const adapter = mongodbAdapter(db, { client });
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Type mismatch between Mongoose bundled and standalone MongoDB driver types
-export function getMongoClient(): any {
-  if (!mongoose.connection.getClient) {
+export function getMongoClient(): MongoClient {
+  const client = mongoose.connection.getClient();
+  if (!client) {
     throw new Error(
-      'Database connection not established. Call connectToDatabase() first.',
+      'Database connection not established. Call and await connectToDatabase() first.',
     );
   }
-  // Type assertion: Mongoose bundles its own MongoDB driver version
-  // which may differ from the standalone mongodb package types
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Runtime compatibility verified; type-only issue
-  return mongoose.connection.getClient() as any;
+  return client as MongoClient;
 }
 
 /**
- * Convenience exports for better-auth adapter.
- * These proxies ensure connection is established before accessing.
+ * Gets database connection details for better-auth adapter.
+ * This is the recommended way to get both db and client for better-auth.
  *
- * Usage:
+ * IMPORTANT: Only call this after `connectToDatabase()` has resolved.
+ *
+ * @returns Object containing db and mongoClient for better-auth adapter
+ * @throws {Error} If connection is not established
+ *
+ * @example
  * ```typescript
- * import { db, mongoClient } from '@/lib/db.lib.js';
- * import { mongodbAdapter } from 'better-auth/adapters/mongodb';
- *
+ * await connectToDatabase();
+ * const { db, mongoClient } = getDbConnection();
  * const adapter = mongodbAdapter(db, { client: mongoClient });
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Proxy wrapper for Mongoose MongoDB types; see getDb()
-export const db = new Proxy({} as any, {
-  get(_target, prop) {
-    const dbInstance = getDb();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic property access on MongoDB Db instance
-    return dbInstance[prop as any];
-  },
-});
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Proxy wrapper for Mongoose MongoClient types; see getMongoClient()
-export const mongoClient = new Proxy({} as any, {
-  get(_target, prop) {
-    const client = getMongoClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic property access on MongoClient instance
-    return client[prop as any];
-  },
-});
-
-// ============================================================================
-// INITIALIZATION
-// ============================================================================
-
-/**
- * Auto-connect on module import.
- * Ensures database is ready when auth system initializes.
- */
-connectToDatabase().catch((err) => {
-  logger.error('Failed to initialize database connection', {
-    error: err.message,
-  });
-  // In production, we might want to exit the process
-  if (env.isProduction) {
-    process.exit(1);
-  }
-});
+export function getDbConnection(): { db: Db; mongoClient: MongoClient } {
+  return {
+    db: getDb(),
+    mongoClient: getMongoClient(),
+  };
+}
