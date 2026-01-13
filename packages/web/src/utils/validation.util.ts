@@ -80,6 +80,44 @@ export function safeParse<S extends z.ZodTypeAny>(
 }
 
 // ============================================================================
+// Simple Validation Helper Functions
+// ============================================================================
+
+/**
+ * Validates if a string is a valid email address
+ *
+ * @param email - String to validate
+ * @returns True if valid email format, false otherwise
+ *
+ * @example
+ * ```typescript
+ * isValidEmail('user@example.com') // true
+ * isValidEmail('invalid-email') // false
+ * ```
+ */
+export function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
+}
+
+/**
+ * Checks if a string is empty or contains only whitespace
+ *
+ * @param value - String to check
+ * @returns True if empty or whitespace only, false otherwise
+ *
+ * @example
+ * ```typescript
+ * isEmpty('') // true
+ * isEmpty('   ') // true
+ * isEmpty('hello') // false
+ * ```
+ */
+export function isEmpty(value: string): boolean {
+  return value.trim().length === 0
+}
+
+// ============================================================================
 // Common Field Schemas (Reusable)
 // ============================================================================
 

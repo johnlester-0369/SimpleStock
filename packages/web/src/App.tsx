@@ -1,6 +1,7 @@
 import { RouterProvider } from 'react-router-dom'
 import { HelmetProvider } from '@dr.pogodin/react-helmet'
 import { router } from '@/routes'
+import { UserAuthProvider } from '@/contexts/UserAuthContext'
 
 /**
  * App component serves as the RouterProvider wrapper.
@@ -13,7 +14,9 @@ import { router } from '@/routes'
 export default function App() {
   return (
     <HelmetProvider>
-      <RouterProvider router={router} />
+      <UserAuthProvider>
+        <RouterProvider router={router} />
+      </UserAuthProvider>
     </HelmetProvider>
   )
 }

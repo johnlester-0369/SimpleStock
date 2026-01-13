@@ -1,26 +1,20 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useUserAuth } from '@/contexts/UserAuthContext'
+import { authUserClient } from '@/lib/auth-client'
 import PageHead from '@/components/common/PageHead'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Dialog from '@/components/ui/Dialog'
 import Card from '@/components/ui/Card'
 import Alert from '@/components/ui/Alert'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { Pencil, User, Mail, Lock, Eye, EyeOff, Save } from 'lucide-react'
 import {
   validateForm,
-  userProfileSchema,
   passwordChangeSchema,
-  type UserProfileFormData as ZodUserProfileFormData,
+  isEmpty,
   type PasswordChangeFormData as ZodPasswordChangeFormData,
 } from '@/utils/validation.util'
-
-/**
- * User profile interface
- */
-interface UserProfile {
-  name: string
-  email: string
-}
 
 /**
  * Password form state interface
@@ -29,14 +23,6 @@ interface PasswordFormState {
   currentPassword: string
   newPassword: string
   confirmPassword: string
-}
-
-/**
- * Initial mock user profile data
- */
-const INITIAL_USER_PROFILE: UserProfile = {
-  name: 'Admin User',
-  email: 'admin@simplestock.com',
 }
 
 /** Initial empty password form */
@@ -50,17 +36,20 @@ const EMPTY_PASSWORD_FORM: PasswordFormState = {
  * AccountPage Component
  *
  * A dedicated page for managing user account featuring:
- * - User Profile section with editable fields
- * - Change Password functionality
- * - Zod validation for all operations
+ * - User Profile section with editable name field
+ * - Change Password functionality via better-auth API
+ * - Real-time validation for all operations
+ * - Integration with UserAuthContext for user data
  */
 const AccountPage: React.FC = () => {
-  // User profile states
-  const [userProfile, setUserProfile] =
-    useState<UserProfile>(INITIAL_USER_PROFILE)
-  const [profileForm, setProfileForm] =
-    useState<UserProfile>(INITIAL_USER_PROFILE)
+  // Get user data and refresh function from auth context
+  const { user, isLoading: authLoading, refreshSession } = useUserAuth()
+
+  // Profile editing states
   const [isProfileEditing, setIsProfileEditing] = useState(false)
+  const [profileName, setProfileName] = useState('')
+  const [profileNameError, setProfileNameError] = useState('')
+  const [profileLoading, setProfileLoading] = useState(false)
   const [profileSuccess, setProfileSuccess] = useState('')
   const [profileError, setProfileError] = useState('')
 
@@ -70,55 +59,101 @@ const AccountPage: React.FC = () => {
     useState<PasswordFormState>(EMPTY_PASSWORD_FORM)
   const [passwordFormError, setPasswordFormError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState('')
+  const [passwordLoading, setPasswordLoading] = useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  /**
-   * Handle profile form field changes
-   */
-  const handleProfileFormChange =
-    (field: keyof UserProfile) => (e: React.ChangeEvent<HTMLInputElement>) => {
-      setProfileForm((prev) => ({ ...prev, [field]: e.target.value }))
-      if (profileError) setProfileError('')
+  // Sync profile name with user data when user changes or editing starts
+  useEffect(() => {
+    if (user?.name) {
+      setProfileName(user.name)
     }
+  }, [user?.name])
 
   /**
-   * Validate and save profile using Zod
+   * Validates the profile name field
+   * @param value - Name value to validate
+   * @returns True if valid, false otherwise
    */
-  const handleSaveProfile = () => {
-    const validation = validateForm(userProfileSchema, {
-      name: profileForm.name.trim(),
-      email: profileForm.email.trim(),
-    })
-
-    if (!validation.success) {
-      setProfileError(validation.error || 'Validation failed')
-      return
+  const validateProfileName = (value: string): boolean => {
+    if (isEmpty(value)) {
+      setProfileNameError('Full name is required')
+      return false
     }
-
-    const validatedData = validation.data as ZodUserProfileFormData
-
-    setUserProfile({
-      name: validatedData.name,
-      email: validatedData.email,
-    })
-    setIsProfileEditing(false)
-    setProfileSuccess('Profile updated successfully!')
-    setTimeout(() => setProfileSuccess(''), 3000)
+    if (value.trim().length < 2) {
+      setProfileNameError('Name must be at least 2 characters')
+      return false
+    }
+    setProfileNameError('')
+    return true
   }
 
   /**
-   * Cancel profile editing
+   * Start editing profile - reset to current user name
+   */
+  const handleStartEditing = () => {
+    setProfileName(user?.name || '')
+    setProfileNameError('')
+    setProfileError('')
+    setIsProfileEditing(true)
+  }
+
+  /**
+   * Cancel profile editing - reset form
    */
   const handleCancelProfileEdit = () => {
-    setProfileForm(userProfile)
+    setProfileName(user?.name || '')
     setIsProfileEditing(false)
+    setProfileNameError('')
     setProfileError('')
   }
 
   /**
-   * Reset password form
+   * Save profile changes via better-auth API
+   */
+  const handleSaveProfile = async () => {
+    // Validate name
+    if (!validateProfileName(profileName)) {
+      return
+    }
+
+    // Check if name actually changed
+    if (profileName.trim() === user?.name) {
+      setIsProfileEditing(false)
+      return
+    }
+
+    setProfileLoading(true)
+    setProfileError('')
+
+    try {
+      const result = await authUserClient.updateUser({
+        name: profileName.trim(),
+      })
+
+      if (result.error) {
+        throw new Error(result.error.message || 'Failed to update profile')
+      }
+
+      // Refresh session to get updated user data
+      refreshSession()
+
+      setIsProfileEditing(false)
+      setProfileSuccess('Profile updated successfully!')
+      setTimeout(() => setProfileSuccess(''), 3000)
+    } catch (err) {
+      console.error('Profile update failed:', err)
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to update profile'
+      setProfileError(errorMessage)
+    } finally {
+      setProfileLoading(false)
+    }
+  }
+
+  /**
+   * Reset password form to initial state
    */
   const resetPasswordForm = () => {
     setPasswordForm(EMPTY_PASSWORD_FORM)
@@ -129,9 +164,10 @@ const AccountPage: React.FC = () => {
   }
 
   /**
-   * Handle password change with Zod validation
+   * Handle password change with Zod validation and API call
    */
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
+    // Validate using Zod schema
     const validation = validateForm(passwordChangeSchema, {
       currentPassword: passwordForm.currentPassword,
       newPassword: passwordForm.newPassword,
@@ -143,17 +179,34 @@ const AccountPage: React.FC = () => {
       return
     }
 
-    // Static: In real app, this would call an API
     const validatedData = validation.data as ZodPasswordChangeFormData
-    console.log('Password change requested', {
-      hasCurrentPassword: !!validatedData.currentPassword,
-      hasNewPassword: !!validatedData.newPassword,
-    })
 
-    setIsChangePasswordOpen(false)
-    resetPasswordForm()
-    setPasswordSuccess('Password changed successfully!')
-    setTimeout(() => setPasswordSuccess(''), 3000)
+    setPasswordLoading(true)
+    setPasswordFormError('')
+
+    try {
+      const result = await authUserClient.changePassword({
+        currentPassword: validatedData.currentPassword,
+        newPassword: validatedData.newPassword,
+        revokeOtherSessions: true, // Security: revoke other sessions on password change
+      })
+
+      if (result.error) {
+        throw new Error(result.error.message || 'Failed to change password')
+      }
+
+      setIsChangePasswordOpen(false)
+      resetPasswordForm()
+      setPasswordSuccess('Password changed successfully!')
+      setTimeout(() => setPasswordSuccess(''), 3000)
+    } catch (err) {
+      console.error('Password change failed:', err)
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to change password'
+      setPasswordFormError(errorMessage)
+    } finally {
+      setPasswordLoading(false)
+    }
   }
 
   /**
@@ -167,11 +220,29 @@ const AccountPage: React.FC = () => {
     }
 
   /**
-   * Close password dialog
+   * Close password dialog and reset form
    */
   const handleClosePasswordDialog = (open: boolean) => {
     setIsChangePasswordOpen(open)
     if (!open) resetPasswordForm()
+  }
+
+  // Show loading state while checking auth
+  if (authLoading) {
+    return <LoadingSpinner />
+  }
+
+  // Handle case where user is not available
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Alert
+          variant="error"
+          title="Unable to load account"
+          message="Please try refreshing the page or logging in again."
+        />
+      </div>
+    )
   }
 
   return (
@@ -227,44 +298,54 @@ const AccountPage: React.FC = () => {
                 <Input
                   label="Full Name"
                   placeholder="Enter your full name"
-                  value={isProfileEditing ? profileForm.name : userProfile.name}
-                  onChange={handleProfileFormChange('name')}
+                  value={isProfileEditing ? profileName : user.name}
+                  onChange={(e) => {
+                    setProfileName(e.target.value)
+                    if (profileNameError) validateProfileName(e.target.value)
+                  }}
+                  onBlur={(e) => {
+                    if (isProfileEditing) validateProfileName(e.target.value)
+                  }}
+                  error={profileNameError}
                   leftIcon={<User className="h-5 w-5" />}
-                  disabled={!isProfileEditing}
+                  disabled={!isProfileEditing || profileLoading}
                 />
 
                 <Input
                   label="Email Address"
                   type="email"
-                  placeholder="Enter your email"
-                  value={
-                    isProfileEditing ? profileForm.email : userProfile.email
-                  }
-                  onChange={handleProfileFormChange('email')}
+                  placeholder="Your email address"
+                  value={user.email}
                   leftIcon={<Mail className="h-5 w-5" />}
-                  disabled={!isProfileEditing}
+                  disabled={true}
+                  helperText="Email cannot be changed"
                 />
               </div>
             </Card.Body>
             <Card.Footer>
               {isProfileEditing ? (
                 <>
-                  <Button variant="ghost" onClick={handleCancelProfileEdit}>
+                  <Button
+                    variant="ghost"
+                    onClick={handleCancelProfileEdit}
+                    disabled={profileLoading}
+                  >
                     Cancel
                   </Button>
                   <Button
                     variant="primary"
                     leftIcon={<Save className="h-4 w-4" />}
                     onClick={handleSaveProfile}
+                    isLoading={profileLoading}
                   >
-                    Save Changes
+                    {profileLoading ? 'Saving...' : 'Save Changes'}
                   </Button>
                 </>
               ) : (
                 <Button
                   variant="secondary"
                   leftIcon={<Pencil className="h-4 w-4" />}
-                  onClick={() => setIsProfileEditing(true)}
+                  onClick={handleStartEditing}
                 >
                   Edit Profile
                 </Button>
@@ -286,7 +367,12 @@ const AccountPage: React.FC = () => {
                     </div>
                     <div>
                       <p className="font-medium text-headline">Password</p>
-                      <p className="text-sm text-muted">Last changed: Never</p>
+                      <p className="text-sm text-muted">
+                        Last updated:{' '}
+                        {user.updatedAt
+                          ? new Date(user.updatedAt).toLocaleDateString()
+                          : 'Never'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -352,6 +438,7 @@ const AccountPage: React.FC = () => {
                               />
                             )
                           }
+                          disabled={passwordLoading}
                         />
 
                         <Input
@@ -377,6 +464,7 @@ const AccountPage: React.FC = () => {
                             )
                           }
                           helperText="Must be at least 8 characters"
+                          disabled={passwordLoading}
                         />
 
                         <Input
@@ -401,6 +489,7 @@ const AccountPage: React.FC = () => {
                               />
                             )
                           }
+                          disabled={passwordLoading}
                         />
                       </div>
                     </Dialog.Body>
@@ -409,11 +498,16 @@ const AccountPage: React.FC = () => {
                       <Button
                         variant="ghost"
                         onClick={() => setIsChangePasswordOpen(false)}
+                        disabled={passwordLoading}
                       >
                         Cancel
                       </Button>
-                      <Button variant="primary" onClick={handleChangePassword}>
-                        Update Password
+                      <Button
+                        variant="primary"
+                        onClick={handleChangePassword}
+                        isLoading={passwordLoading}
+                      >
+                        {passwordLoading ? 'Updating...' : 'Update Password'}
                       </Button>
                     </Dialog.Footer>
                   </Dialog.Content>

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Menu, Settings, LogOut, ChevronDown } from 'lucide-react'
+import { useUserAuth } from '@/contexts/UserAuthContext'
 import IconButton from '@/components/ui/IconButton'
 import { cn } from '@/utils/cn.util'
 
@@ -41,21 +42,25 @@ const getPageTitle = (pathname: string): string => {
 }
 
 /**
- * Mock user data
- * In a real application, this would come from an auth context or state management
+ * Navbar Component
+ *
+ * Top navigation bar featuring:
+ * - Mobile menu toggle button
+ * - Dynamic page title based on current route
+ * - User dropdown menu with profile info and actions
+ * - Integration with UserAuthContext for real user data
  */
-const CURRENT_USER = {
-  name: 'Admin User',
-  email: 'admin@simplestock.com',
-}
-
 const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const pageTitle = getPageTitle(location.pathname)
 
+  // Get user data and logout function from auth context
+  const { user, logout } = useUserAuth()
+
   // User menu state
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
   // Close menu when clicking outside
@@ -106,17 +111,29 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
 
   /**
    * Handle logout action
-   * In a real app, this would call logout API and clear auth state
+   * Calls logout from auth context and redirects to login page
    */
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsUserMenuOpen(false)
-    console.log('Logout clicked')
-    // TODO: Implement actual logout logic
-    // - Call logout API
-    // - Clear auth tokens/state
-    // - Redirect to login page
-    navigate('/')
+    setIsLoggingOut(true)
+
+    try {
+      await logout()
+      // Navigation to login page is handled by the auth context/guards
+      // But we can also explicitly navigate as a fallback
+      navigate('/', { replace: true })
+    } catch (error) {
+      console.error('Logout failed:', error)
+      // Even if logout fails, attempt to redirect
+      navigate('/', { replace: true })
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
+
+  // Fallback display values if user is not available
+  const displayName = user?.name || 'User'
+  const displayEmail = user?.email || ''
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-surface-2 flex items-center justify-between px-4 lg:px-6">
@@ -139,9 +156,11 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
       <div className="relative" ref={userMenuRef}>
         <button
           onClick={toggleUserMenu}
+          disabled={isLoggingOut}
           className={cn(
             'flex items-center gap-2 px-3 py-2 rounded-lg transition-colors',
             'hover:bg-surface-hover-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-2',
+            'disabled:opacity-50 disabled:cursor-not-allowed',
             isUserMenuOpen && 'bg-surface-hover-2',
           )}
           aria-expanded={isUserMenuOpen}
@@ -150,7 +169,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
         >
           {/* User Name - Always visible with truncation for overflow */}
           <span className="text-sm font-medium text-headline max-w-[120px] truncate">
-            {CURRENT_USER.name}
+            {isLoggingOut ? 'Signing out...' : displayName}
           </span>
 
           {/* Chevron Indicator */}
@@ -163,7 +182,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
         </button>
 
         {/* Dropdown Menu */}
-        {isUserMenuOpen && (
+        {isUserMenuOpen && !isLoggingOut && (
           <div
             className="absolute right-0 mt-2 w-64 bg-surface-2 border-2 border-border rounded-lg shadow-soft-lg z-50 animate-in fade-in zoom-in-95 duration-200"
             role="menu"
@@ -172,11 +191,13 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
             {/* User Info Section */}
             <div className="px-4 py-3 border-b border-divider">
               <p className="text-sm font-semibold text-headline truncate">
-                {CURRENT_USER.name}
+                {displayName}
               </p>
-              <p className="text-xs text-muted truncate mt-0.5">
-                {CURRENT_USER.email}
-              </p>
+              {displayEmail && (
+                <p className="text-xs text-muted truncate mt-0.5">
+                  {displayEmail}
+                </p>
+              )}
             </div>
 
             {/* Menu Items */}

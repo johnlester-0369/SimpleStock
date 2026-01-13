@@ -1,4 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useUserAuth } from '@/contexts/UserAuthContext'
 import Card from '@/components/ui/Card'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -6,9 +8,33 @@ import Alert from '@/components/ui/Alert'
 import PageHead from '@/components/common/PageHead'
 import { BrandLogo, BrandName } from '@/components/common/Brand'
 import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react'
-import { validateForm, loginSchema, type LoginFormData } from '@/utils/validation.util'
+import { isValidEmail, isEmpty } from '@/utils/validation.util'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
+/**
+ * Location state interface for redirect handling
+ */
+interface LocationState {
+  from?: {
+    pathname: string
+  }
+}
+
+/**
+ * UserLogin Component
+ *
+ * Handles user authentication with:
+ * - Email/password login via better-auth
+ * - Field-level validation
+ * - Redirect to original destination after login
+ * - Loading states and error handling
+ */
 const UserLogin: React.FC = () => {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { isAuthenticated, isLoading, login } = useUserAuth()
+
+  // Form state
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
@@ -16,30 +42,95 @@ const UserLogin: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [loginError, setLoginError] = useState<string>('')
 
+  // Field-level errors
+  const [emailError, setEmailError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+
+  // Get the page they were trying to access (defaults to dashboard)
+  const state = location.state as LocationState | null
+  const from = state?.from?.pathname || '/dashboard'
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate(from, { replace: true })
+    }
+  }, [isAuthenticated, isLoading, navigate, from])
+
+  /**
+   * Validates email field
+   * @param value - Email value to validate
+   * @returns True if valid, false otherwise
+   */
+  const validateEmail = (value: string): boolean => {
+    if (isEmpty(value)) {
+      setEmailError('Email is required')
+      return false
+    }
+    if (!isValidEmail(value)) {
+      setEmailError('Please enter a valid email address')
+      return false
+    }
+    setEmailError('')
+    return true
+  }
+
+  /**
+   * Validates password field
+   * @param value - Password value to validate
+   * @returns True if valid, false otherwise
+   */
+  const validatePasswordField = (value: string): boolean => {
+    if (isEmpty(value)) {
+      setPasswordError('Password is required')
+      return false
+    }
+    setPasswordError('')
+    return true
+  }
+
+  /**
+   * Handles form submission
+   * Validates fields and calls login API
+   */
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoginError('')
 
-    // Validate form using Zod
-    const formData: LoginFormData = { email, password }
-    const validation = validateForm(loginSchema, formData)
+    // Validate all fields
+    const isEmailValid = validateEmail(email)
+    const isPasswordValid = validatePasswordField(password)
 
-    if (!validation.success) {
-      setLoginError(validation.error || 'Validation failed')
+    if (!isEmailValid || !isPasswordValid) {
       return
     }
 
     setLoading(true)
 
     try {
-      // Static: Add your login logic here
-      console.log('Login attempt:', { email: validation.data?.email, rememberMe })
+      await login(email, password, rememberMe)
+      // Navigate to the page they were trying to access or dashboard
+      navigate(from, { replace: true })
     } catch (err) {
       console.error('Login failed:', err)
-      setLoginError('Invalid credentials. Please try again.')
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'Invalid credentials. Please try again.'
+      setLoginError(errorMessage)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show loading state while checking auth
+  if (isLoading) {
+    return <LoadingSpinner />
+  }
+
+  // Don't render form if already authenticated (will redirect)
+  if (isAuthenticated) {
+    return null
   }
 
   return (
@@ -83,7 +174,12 @@ const UserLogin: React.FC = () => {
                     label="Email Address"
                     placeholder="you@example.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      if (emailError) validateEmail(e.target.value)
+                    }}
+                    onBlur={(e) => validateEmail(e.target.value)}
+                    error={emailError}
                     leftIcon={<Mail className="h-5 w-5" />}
                     disabled={loading}
                     autoComplete="email"
@@ -97,7 +193,12 @@ const UserLogin: React.FC = () => {
                     label="Password"
                     placeholder="Enter your password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      if (passwordError) validatePasswordField(e.target.value)
+                    }}
+                    onBlur={(e) => validatePasswordField(e.target.value)}
+                    error={passwordError}
                     leftIcon={<Lock className="h-5 w-5" />}
                     rightIcon={
                       showPassword ? (

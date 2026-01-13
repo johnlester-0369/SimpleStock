@@ -8,68 +8,114 @@ import ReportPage from '@/pages/report'
 import AccountPage from '@/pages/settings/account'
 import SupplierPage from '@/pages/settings/supplier'
 
+// guards
+import PublicRoute from '@/guards/PublicRoute'
+import UserProtectedRoute from '@/guards/UserProtectedRoute'
+
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <LoginPage />,
-  },
-  {
-    path: '/dashboard',
-    element: <DashboardLayout />,
+    element: <PublicRoute />,
     children: [
       {
         index: true,
-        element: <DashboardPage />,
+        element: <LoginPage />,
+      },
+    ],
+  },
+  {
+    path: '/dashboard',
+    element: <UserProtectedRoute />,
+    children: [
+      {
+        path: '',
+        element: <DashboardLayout />,
+        children: [
+          {
+            index: true,
+            element: <DashboardPage />,
+          },
+        ],
       },
     ],
   },
   {
     path: '/products',
-    element: <DashboardLayout />,
+    element: <UserProtectedRoute />,
     children: [
       {
-        index: true,
-        element: <ProductsPage />,
+        path: '',
+        element: <DashboardLayout />,
+        children: [
+          {
+            index: true,
+            element: <ProductsPage />,
+          },
+        ],
       },
     ],
   },
   {
     path: '/transaction',
-    element: <DashboardLayout />,
+    element: <UserProtectedRoute />,
     children: [
       {
-        index: true,
-        element: <TransactionPage />,
+        path: '',
+        element: <DashboardLayout />,
+        children: [
+          {
+            index: true,
+            element: <TransactionPage />,
+          },
+        ],
       },
     ],
   },
   {
     path: '/report',
-    element: <DashboardLayout />,
+    element: <UserProtectedRoute />,
     children: [
       {
-        index: true,
-        element: <ReportPage />,
+        path: '',
+        element: <DashboardLayout />,
+        children: [
+          {
+            index: true,
+            element: <ReportPage />,
+          },
+        ],
       },
     ],
   },
   {
     path: '/settings/account',
-    element: <DashboardLayout />,
+    element: <UserProtectedRoute />,
     children: [
       {
-        index: true,
-        element: <AccountPage />,
+        path: '',
+        element: <DashboardLayout />,
+        children: [
+          {
+            index: true,
+            element: <AccountPage />,
+          },
+        ],
       },
     ],
   },
   {
     path: '/settings/supplier',
-    element: <DashboardLayout />,
+    element: <UserProtectedRoute />,
     children: [
       {
-        index: true,
-        element: <SupplierPage />,
+        path: '',
+        element: <DashboardLayout />,
+        children: [
+          {
+            index: true,
+            element: <SupplierPage />,
+          },
+        ],
       },
     ],
   },
