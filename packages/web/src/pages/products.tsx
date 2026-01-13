@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import PageHead from '@/components/common/PageHead'
 import Table from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
@@ -19,6 +19,7 @@ import {
   Package,
   AlertTriangle,
   Filter,
+  Truck,
 } from 'lucide-react'
 import { cn } from '@/utils/cn.util'
 
@@ -74,9 +75,13 @@ const STOCK_FILTER_OPTIONS = [
  * - Sell product functionality
  * - Low stock highlighting (<5 items)
  * - EmptyState component for empty results
+ * - No suppliers prompt when no suppliers exist
  * - Dynamic data from API via hooks
  */
 const ProductsPage: React.FC = () => {
+  // Navigation hook for redirecting
+  const navigate = useNavigate()
+
   // URL search params for filter navigation (supports dashboard links)
   const [searchParams] = useSearchParams()
 
@@ -102,8 +107,8 @@ const ProductsPage: React.FC = () => {
     supplier: supplierFilter,
   })
 
-  // Fetch suppliers for dropdown
-  const { suppliers: supplierList } = useSuppliers()
+  // Fetch suppliers for dropdown (also get loading state)
+  const { suppliers: supplierList, loading: suppliersLoading } = useSuppliers()
 
   // Mutation handlers
   const [successMessage, setSuccessMessage] = useState('')
@@ -418,9 +423,50 @@ const ProductsPage: React.FC = () => {
     }
   }
 
-  // Show loading spinner during initial load
-  if (loading && products.length === 0) {
+  /**
+   * Navigate to supplier management page
+   */
+  const handleNavigateToSuppliers = () => {
+    navigate('/settings/supplier')
+  }
+
+  // Show loading spinner during initial load (products or suppliers)
+  if ((loading && products.length === 0) || (suppliersLoading && supplierList.length === 0)) {
     return <LoadingSpinner />
+  }
+
+  // If no suppliers exist, show prompt to add suppliers first
+  if (supplierList.length === 0) {
+    return (
+      <>
+        <PageHead
+          title="Products"
+          description="Manage your product inventory, add new products, and track stock levels."
+        />
+
+        <div className="space-y-6">
+          {/* Page Header */}
+          <div>
+            <h1 className="text-2xl font-bold text-headline">Products</h1>
+            <p className="mt-1 text-muted">
+              Manage your product inventory and stock levels.
+            </p>
+          </div>
+
+          {/* No Suppliers Empty State */}
+          <EmptyState
+            icon={Truck}
+            title="No suppliers yet"
+            description="You must add a supplier before adding products."
+            action={{
+              label: 'Add Supplier',
+              onClick: handleNavigateToSuppliers,
+              icon: <Plus className="h-4 w-4" />,
+            }}
+          />
+        </div>
+      </>
+    )
   }
 
   return (
