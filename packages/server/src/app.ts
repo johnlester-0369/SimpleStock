@@ -101,14 +101,14 @@ export function createApp(auth: AuthInstance): Express {
    * Better-Auth handler mount point.
    * All auth routes are handled by Better Auth.
    */
-  app.all('/api/v1/user/auth/*', toNodeHandler(auth));
+  app.all('/api/v1/admin/auth/*', toNodeHandler(auth));
 
   /**
    * API v1 routes
    */
-  app.use('/api/v1/user/products', productRoutes);
-  app.use('/api/v1/user/suppliers', supplierRoutes);
-  app.use('/api/v1/user/transactions', transactionRoutes);
+  app.use('/api/v1/admin/products', productRoutes);
+  app.use('/api/v1/admin/suppliers', supplierRoutes);
+  app.use('/api/v1/admin/transactions', transactionRoutes);
 
   /**
    * Health check / root endpoint.

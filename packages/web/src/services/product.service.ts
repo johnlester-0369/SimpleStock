@@ -100,7 +100,7 @@ export interface LowStockResponse {
  * Product Service - API client for product operations
  */
 class ProductService {
-  private readonly baseUrl = '/api/v1/user/products'
+  private readonly baseUrl = '/api/v1/admin/products'
 
   /**
    * Get all products with optional filters

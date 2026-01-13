@@ -66,7 +66,7 @@ export interface GetSuppliersParams {
  * Supplier Service - API client for supplier operations
  */
 class SupplierService {
-  private readonly baseUrl = '/api/v1/user/suppliers'
+  private readonly baseUrl = '/api/v1/admin/suppliers'
 
   /**
    * Get all suppliers with optional filters

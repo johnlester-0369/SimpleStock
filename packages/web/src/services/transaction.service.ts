@@ -78,7 +78,7 @@ export interface GetTransactionsParams {
  * Transaction Service - API client for transaction operations
  */
 class TransactionService {
-  private readonly baseUrl = '/api/v1/user/transactions'
+  private readonly baseUrl = '/api/v1/admin/transactions'
 
   /**
    * Get all transactions with optional filters

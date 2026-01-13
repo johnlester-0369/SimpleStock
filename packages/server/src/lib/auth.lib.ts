@@ -61,7 +61,7 @@ let authInstance: AuthInstance | null = null;
  *
  * // Later, in route handlers
  * const auth = getAuth();
- * app.use('/api/v1/user/auth/*', toNodeHandler(auth));
+ * app.use('/api/v1/admin/auth/*', toNodeHandler(auth));
  * ```
  */
 export async function initializeAuth(): Promise<AuthInstance> {
@@ -86,7 +86,7 @@ export async function initializeAuth(): Promise<AuthInstance> {
 
     // Base configuration
     baseURL: env.BASE_URL,
-    basePath: '/api/v1/user/auth',
+    basePath: '/api/v1/admin/auth',
     secret: env.AUTH_SECRET_USER,
 
     // Email/password authentication
@@ -117,7 +117,7 @@ export async function initializeAuth(): Promise<AuthInstance> {
 
     // Cookie configuration
     advanced: {
-      cookiePrefix: 'user',
+      cookiePrefix: 'admin',
     },
 
     // Plugins
@@ -161,7 +161,7 @@ export function getAuth(): AuthInstance {
 }
 
 /**
- * Alias for getAuth() - returns the user auth instance.
+ * Alias for getAuth() - returns the admin auth instance.
  * Provides backward compatibility with existing code.
  *
  * @returns The configured auth instance
