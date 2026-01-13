@@ -20,7 +20,7 @@ import { logger } from '@/utils/logger.util.js';
 // ============================================================================
 
 declare global {
-  // eslint-disable-next-line no-var -- Required for global augmentation in Node.js
+   
   var _mongoClientConnection:
     | {
         client: MongoClient | null;
