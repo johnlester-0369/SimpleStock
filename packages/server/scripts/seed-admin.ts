@@ -2,8 +2,8 @@
  * Admin User Seed Script
  *
  * Creates the initial admin user for the application.
- * Uses better-auth's signUpEmail API to create the user,
- * then updates the role to 'admin' via direct MongoDB access.
+ * Uses better-auth's admin plugin `createUser` API to create the user
+ * with the admin role directly.
  *
  * This script is idempotent - running it multiple times is safe.
  *
@@ -20,7 +20,10 @@ import 'dotenv/config';
 import { env } from '../src/config/env.config.js';
 import { logger } from '../src/utils/logger.util.js';
 import { initializeAuth } from '../src/lib/auth.lib.js';
-import { connectMongoClient, disconnectMongoClient } from '../src/lib/mongo-client.lib.js';
+import {
+  connectMongoClient,
+  disconnectMongoClient,
+} from '../src/lib/mongo-client.lib.js';
 
 // ============================================================================
 // CONFIGURATION
@@ -89,7 +92,10 @@ function getAdminSeedConfig(): AdminSeedConfig {
  * 1. Check if admin already exists (by email)
  * 2. If exists with admin role, skip creation
  * 3. If exists without admin role, update role to admin
- * 4. If doesn't exist, create user via signUpEmail and set role
+ * 4. If doesn't exist, create user via createUser with role='admin'
+ *
+ * Uses the better-auth admin plugin's createUser API which allows
+ * specifying the role directly during user creation.
  *
  * @returns Promise that resolves when seeding is complete
  */
@@ -98,13 +104,16 @@ async function seedAdmin(): Promise<void> {
 
   // Get configuration
   const config = getAdminSeedConfig();
-  logger.info('Admin seed configuration loaded', { email: config.email, name: config.name });
+  logger.info('Admin seed configuration loaded', {
+    email: config.email,
+    name: config.name,
+  });
 
   // Initialize auth (also connects MongoClient)
   logger.info('Initializing authentication system...');
   const auth = await initializeAuth();
 
-  // Get MongoDB database for direct queries
+  // Get MongoDB database for direct queries (checking existing user)
   const { db } = await connectMongoClient();
   const usersCollection = db.collection('user');
 
@@ -114,7 +123,7 @@ async function seedAdmin(): Promise<void> {
 
   if (existingUser) {
     logger.info('User already exists', {
-      userId: existingUser.id,
+      id: existingUser.id,
       email: existingUser.email,
       currentRole: existingUser.role,
     });
@@ -125,53 +134,54 @@ async function seedAdmin(): Promise<void> {
       return;
     }
 
-    // Update existing user to admin role
+    // Update existing user to admin role using setRole API
     logger.info('Updating existing user to admin role...');
-    await usersCollection.updateOne(
-      { email: config.email },
-      { $set: { role: 'admin', updatedAt: new Date() } },
-    );
+    try {
+      await usersCollection.updateOne(
+        { email: config.email },
+        { $set: { role: 'admin', updatedAt: new Date() } },
+      );
 
-    logger.info('✅ Successfully updated user to admin role', {
-      userId: existingUser.id,
-      email: config.email,
-    });
+      logger.info('✅ Successfully updated user to admin role', {
+        id: existingUser.id,
+        email: config.email,
+      });
+    } catch (updateError) {
+      logger.error('Failed to update user role', {
+        error:
+          updateError instanceof Error ? updateError.message : 'Unknown error',
+      });
+      throw updateError;
+    }
     return;
   }
 
-  // Create new user via better-auth signUpEmail
-  logger.info('Creating new admin user via better-auth...');
+  // Create new user via better-auth admin plugin's createUser API
+  // This allows specifying the role directly during creation
+  logger.info('Creating new admin user via better-auth createUser API...');
 
   try {
-    const signUpResult = await auth.api.signUpEmail({
+    // Use the admin plugin's createUser function which accepts role parameter
+    const newUser = await auth.api.createUser({
       body: {
         email: config.email,
         password: config.password,
         name: config.name,
+        role: 'admin', // Directly set admin role during creation
       },
     });
 
-    if (!signUpResult || !signUpResult.user) {
-      throw new Error('SignUp returned null - user may already exist or validation failed');
+    if (!newUser) {
+      throw new Error(
+        'createUser returned null - user creation may have failed',
+      );
     }
 
-    logger.info('User created successfully', {
-      userId: signUpResult.user.id,
-      email: signUpResult.user.email,
-    });
-
-    // Update the role to admin
-    logger.info('Updating user role to admin...');
-    await usersCollection.updateOne(
-      { id: signUpResult.user.id },
-      { $set: { role: 'admin', updatedAt: new Date() } },
-    );
-
-    logger.info('✅ Admin user seeded successfully!', {
-      userId: signUpResult.user.id,
-      email: config.email,
-      name: config.name,
-      role: 'admin',
+    logger.info('✅ Admin user created successfully!', {
+      id: newUser.id,
+      email: newUser.email,
+      name: newUser.name,
+      role: newUser.role,
     });
   } catch (error) {
     // Handle specific better-auth errors
@@ -179,7 +189,8 @@ async function seedAdmin(): Promise<void> {
       // Check if it's a "user already exists" type error
       if (
         error.message.includes('already exists') ||
-        error.message.includes('duplicate')
+        error.message.includes('duplicate') ||
+        error.message.includes('USER_ALREADY_EXISTS')
       ) {
         logger.warn('User may already exist. Attempting to update role...');
 
@@ -190,7 +201,10 @@ async function seedAdmin(): Promise<void> {
             { email: config.email },
             { $set: { role: 'admin', updatedAt: new Date() } },
           );
-          logger.info('✅ Updated existing user to admin role');
+          logger.info('✅ Updated existing user to admin role', {
+            id: user.id,
+            email: config.email,
+          });
           return;
         }
       }
