@@ -3,9 +3,12 @@
  *
  * Custom error hierarchy for service layer exceptions.
  * Controllers translate these to appropriate HTTP responses.
+ * Includes Zod error formatting utilities.
  *
  * @module shared/errors
  */
+
+import { z } from 'zod';
 
 // ============================================================================
 // BASE ERROR CLASSES
@@ -76,9 +79,45 @@ export class ValidationError extends DomainError {
   constructor(
     message: string,
     public readonly field?: string | undefined,
+    public readonly details?: ValidationErrorDetail[] | undefined,
   ) {
     super(message);
   }
+
+  /**
+   * Create ValidationError from Zod error.
+   *
+   * @param zodError - Zod error instance
+   * @returns ValidationError with formatted details
+   *
+   * @example
+   * ```typescript
+   * try {
+   *   schema.parse(input);
+   * } catch (error) {
+   *   if (error instanceof z.ZodError) {
+   *     throw ValidationError.fromZodError(error);
+   *   }
+   * }
+   * ```
+   */
+  static fromZodError(zodError: z.ZodError): ValidationError {
+    const details = formatZodError(zodError);
+    const firstIssue = zodError.issues[0];
+    const field = firstIssue?.path.join('.') || undefined;
+    const message = firstIssue?.message || 'Validation failed';
+
+    return new ValidationError(message, field, details);
+  }
+}
+
+/**
+ * Validation error detail structure
+ */
+export interface ValidationErrorDetail {
+  field: string;
+  message: string;
+  code: string;
 }
 
 /**
@@ -121,6 +160,40 @@ export class OperationFailedError extends DomainError {
   ) {
     super(reason ? `${operation} failed: ${reason}` : `${operation} failed`);
   }
+}
+
+// ============================================================================
+// ZOD ERROR UTILITIES
+// ============================================================================
+
+/**
+ * Format Zod error into array of validation error details.
+ *
+ * @param error - Zod error instance
+ * @returns Array of formatted error details
+ *
+ * @example
+ * ```typescript
+ * const details = formatZodError(zodError);
+ * // [{ field: 'email', message: 'Invalid email', code: 'invalid_string' }]
+ * ```
+ */
+export function formatZodError(error: z.ZodError): ValidationErrorDetail[] {
+  return error.issues.map((issue) => ({
+    field: issue.path.join('.') || 'root',
+    message: issue.message,
+    code: issue.code,
+  }));
+}
+
+/**
+ * Check if an error is a Zod validation error.
+ *
+ * @param error - Unknown error
+ * @returns True if error is ZodError
+ */
+export function isZodError(error: unknown): error is z.ZodError {
+  return error instanceof z.ZodError;
 }
 
 // ============================================================================

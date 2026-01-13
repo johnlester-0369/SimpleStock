@@ -3,18 +3,17 @@
  *
  * Business logic layer for product operations.
  * Handles orchestration between controllers and repositories.
+ * Uses Zod validators for input validation.
  *
  * @module services/product.service
  */
 
+import { z } from 'zod';
 import { productRepo } from '@/repos/product.repo.js';
 import { transactionRepo } from '@/repos/transaction.repo.js';
 import {
   toProductResponse,
   LOW_STOCK_THRESHOLD,
-  type IProduct,
-  type CreateProductInput,
-  type UpdateProductInput,
   type ProductFilterOptions,
   type ProductStats,
   type ProductResponse,
@@ -24,7 +23,15 @@ import {
   ValidationError,
   InsufficientStockError,
   OperationFailedError,
+  isZodError,
 } from '@/shared/errors.js';
+import {
+  validateCreateProduct,
+  validateUpdateProduct,
+  validateSellProduct,
+  type CreateProductInput,
+  type UpdateProductInput,
+} from '@/validators/index.js';
 import { logger } from '@/utils/logger.util.js';
 
 // ============================================================================
@@ -62,92 +69,47 @@ class ProductService {
   // ==========================================================================
 
   /**
-   * Validates product creation input
+   * Validates product creation input using Zod schema.
    * @throws {ValidationError} If validation fails
    */
-  private validateCreateInput(input: CreateProductInput): void {
-    // Validate name
-    if (!input.name || input.name.trim().length === 0) {
-      throw new ValidationError('Product name is required', 'name');
-    }
-    if (input.name.trim().length < 2) {
-      throw new ValidationError('Product name must be at least 2 characters', 'name');
-    }
-    if (input.name.trim().length > 100) {
-      throw new ValidationError('Product name must not exceed 100 characters', 'name');
-    }
-
-    // Validate price
-    if (input.price === undefined || input.price === null) {
-      throw new ValidationError('Price is required', 'price');
-    }
-    if (typeof input.price !== 'number' || input.price < 0.01) {
-      throw new ValidationError('Price must be at least $0.01', 'price');
-    }
-
-    // Validate stock quantity
-    if (input.stockQuantity === undefined || input.stockQuantity === null) {
-      throw new ValidationError('Stock quantity is required', 'stockQuantity');
-    }
-    if (typeof input.stockQuantity !== 'number' || input.stockQuantity < 0) {
-      throw new ValidationError('Stock quantity must be 0 or greater', 'stockQuantity');
-    }
-
-    // Validate supplier
-    if (!input.supplier || input.supplier.trim().length === 0) {
-      throw new ValidationError('Supplier is required', 'supplier');
+  private validateCreateInput(input: unknown): CreateProductInput {
+    try {
+      return validateCreateProduct(input);
+    } catch (error) {
+      if (isZodError(error)) {
+        throw ValidationError.fromZodError(error);
+      }
+      throw error;
     }
   }
 
   /**
-   * Validates product update input
+   * Validates product update input using Zod schema.
    * @throws {ValidationError} If validation fails
    */
-  private validateUpdateInput(input: UpdateProductInput): void {
-    if (input.name !== undefined) {
-      if (input.name.trim().length === 0) {
-        throw new ValidationError('Product name cannot be empty', 'name');
+  private validateUpdateInput(input: unknown): UpdateProductInput {
+    try {
+      return validateUpdateProduct(input);
+    } catch (error) {
+      if (isZodError(error)) {
+        throw ValidationError.fromZodError(error);
       }
-      if (input.name.trim().length < 2) {
-        throw new ValidationError('Product name must be at least 2 characters', 'name');
-      }
-      if (input.name.trim().length > 100) {
-        throw new ValidationError('Product name must not exceed 100 characters', 'name');
-      }
-    }
-
-    if (input.price !== undefined) {
-      if (typeof input.price !== 'number' || input.price < 0.01) {
-        throw new ValidationError('Price must be at least $0.01', 'price');
-      }
-    }
-
-    if (input.stockQuantity !== undefined) {
-      if (typeof input.stockQuantity !== 'number' || input.stockQuantity < 0) {
-        throw new ValidationError('Stock quantity must be 0 or greater', 'stockQuantity');
-      }
-    }
-
-    if (input.supplier !== undefined) {
-      if (input.supplier.trim().length === 0) {
-        throw new ValidationError('Supplier cannot be empty', 'supplier');
-      }
+      throw error;
     }
   }
 
   /**
-   * Validates sell quantity
+   * Validates sell quantity using Zod schema.
    * @throws {ValidationError} If validation fails
    */
-  private validateSellQuantity(quantity: number | undefined | null): void {
-    if (quantity === undefined || quantity === null) {
-      throw new ValidationError('Quantity is required', 'quantity');
-    }
-    if (typeof quantity !== 'number' || quantity < 1) {
-      throw new ValidationError('Quantity must be at least 1', 'quantity');
-    }
-    if (!Number.isInteger(quantity)) {
-      throw new ValidationError('Quantity must be a whole number', 'quantity');
+  private validateSellInput(input: unknown): { quantity: number } {
+    try {
+      return validateSellProduct(input);
+    } catch (error) {
+      if (isZodError(error)) {
+        throw ValidationError.fromZodError(error);
+      }
+      throw error;
     }
   }
 
@@ -242,14 +204,14 @@ class ProductService {
    * Create a new product
    *
    * @param userId - User ID
-   * @param input - Product creation data
+   * @param input - Product creation data (validated by Zod)
    * @returns Created product response
    * @throws {ValidationError} If input validation fails
    */
-  async createProduct(userId: string, input: CreateProductInput): Promise<ProductResponse> {
-    this.validateCreateInput(input);
+  async createProduct(userId: string, input: unknown): Promise<ProductResponse> {
+    const validatedInput = this.validateCreateInput(input);
 
-    const product = await productRepo.create(userId, input);
+    const product = await productRepo.create(userId, validatedInput);
 
     logger.info('Product created via service', {
       productId: product._id.toString(),
@@ -264,7 +226,7 @@ class ProductService {
    *
    * @param productId - Product ID
    * @param userId - User ID
-   * @param input - Update data
+   * @param input - Update data (validated by Zod)
    * @returns Updated product response
    * @throws {ValidationError} If input validation fails
    * @throws {NotFoundError} If product not found
@@ -272,11 +234,11 @@ class ProductService {
   async updateProduct(
     productId: string,
     userId: string,
-    input: UpdateProductInput,
+    input: unknown,
   ): Promise<ProductResponse> {
-    this.validateUpdateInput(input);
+    const validatedInput = this.validateUpdateInput(input);
 
-    const product = await productRepo.update(productId, userId, input);
+    const product = await productRepo.update(productId, userId, validatedInput);
 
     if (!product) {
       throw new NotFoundError('Product', productId);
@@ -292,7 +254,7 @@ class ProductService {
    *
    * @param productId - Product ID
    * @param userId - User ID
-   * @param quantity - Quantity to sell
+   * @param quantityInput - Quantity to sell (raw input, validated by Zod)
    * @returns Sell result with product, amount, and transaction
    * @throws {ValidationError} If quantity validation fails
    * @throws {NotFoundError} If product not found
@@ -302,9 +264,9 @@ class ProductService {
   async sellProduct(
     productId: string,
     userId: string,
-    quantity: number,
+    quantityInput: number,
   ): Promise<SellProductResult> {
-    this.validateSellQuantity(quantity);
+    const { quantity } = this.validateSellInput({ quantity: quantityInput });
 
     // Check if product exists first
     const existingProduct = await productRepo.findById(productId, userId);

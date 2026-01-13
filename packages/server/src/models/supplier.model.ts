@@ -4,6 +4,9 @@
  * Mongoose schema and TypeScript interfaces for Supplier entity.
  * Suppliers represent vendor contacts for product sourcing.
  *
+ * Note: Input types are now defined in validators/supplier.validator.ts
+ * This file focuses on the Mongoose model and response types.
+ *
  * @module models/supplier.model
  */
 
@@ -29,7 +32,8 @@ export interface ISupplier extends Document {
 }
 
 /**
- * Supplier creation input (without generated fields)
+ * Supplier creation input (for repository layer)
+ * Validated input from validators/supplier.validator.ts
  */
 export interface CreateSupplierInput {
   name: string;
@@ -40,7 +44,8 @@ export interface CreateSupplierInput {
 }
 
 /**
- * Supplier update input (partial updates allowed)
+ * Supplier update input (for repository layer)
+ * Validated input from validators/supplier.validator.ts
  */
 export interface UpdateSupplierInput {
   name?: string | undefined;

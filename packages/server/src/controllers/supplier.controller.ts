@@ -9,7 +9,6 @@
 
 import type { Request, Response } from 'express';
 import { supplierService } from '@/services/supplier.service.js';
-import type { CreateSupplierInput, UpdateSupplierInput } from '@/models/supplier.model.js';
 import { isDomainError } from '@/shared/errors.js';
 import { logger } from '@/utils/logger.util.js';
 
@@ -38,7 +37,7 @@ function handleError(error: unknown, res: Response, context: string): void {
 
 /**
  * Get all suppliers for authenticated user with optional filters
- * GET /api/v1/user/suppliers?search=keyword
+ * GET /api/v1/admin/suppliers?search=keyword
  */
 export const getSuppliers = async (
   req: Request,
@@ -57,7 +56,7 @@ export const getSuppliers = async (
 
 /**
  * Get single supplier by ID
- * GET /api/v1/user/suppliers/:id
+ * GET /api/v1/admin/suppliers/:id
  */
 export const getSupplierById = async (
   req: Request,
@@ -81,7 +80,7 @@ export const getSupplierById = async (
 
 /**
  * Get all supplier names for dropdown
- * GET /api/v1/user/suppliers/names
+ * GET /api/v1/admin/suppliers/names
  */
 export const getSupplierNames = async (
   req: Request,
@@ -102,7 +101,7 @@ export const getSupplierNames = async (
 
 /**
  * Create new supplier
- * POST /api/v1/user/suppliers
+ * POST /api/v1/admin/suppliers
  */
 export const createSupplier = async (
   req: Request,
@@ -110,9 +109,8 @@ export const createSupplier = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const input: CreateSupplierInput = req.body;
-
-    const supplier = await supplierService.createSupplier(userId, input);
+    // Pass raw body - service handles validation with Zod
+    const supplier = await supplierService.createSupplier(userId, req.body);
     res.status(201).json(supplier);
   } catch (error) {
     handleError(error, res, 'create supplier');
@@ -121,7 +119,7 @@ export const createSupplier = async (
 
 /**
  * Update supplier
- * PUT /api/v1/user/suppliers/:id
+ * PUT /api/v1/admin/suppliers/:id
  */
 export const updateSupplier = async (
   req: Request,
@@ -130,14 +128,14 @@ export const updateSupplier = async (
   try {
     const userId = req.user!.id;
     const supplierId = req.params.id;
-    const input: UpdateSupplierInput = req.body;
 
     if (!supplierId) {
       res.status(400).json({ error: 'Supplier ID is required' });
       return;
     }
 
-    const supplier = await supplierService.updateSupplier(supplierId, userId, input);
+    // Pass raw body - service handles validation with Zod
+    const supplier = await supplierService.updateSupplier(supplierId, userId, req.body);
     res.json(supplier);
   } catch (error) {
     handleError(error, res, 'update supplier');
@@ -146,7 +144,7 @@ export const updateSupplier = async (
 
 /**
  * Delete supplier
- * DELETE /api/v1/user/suppliers/:id
+ * DELETE /api/v1/admin/suppliers/:id
  */
 export const deleteSupplier = async (
   req: Request,

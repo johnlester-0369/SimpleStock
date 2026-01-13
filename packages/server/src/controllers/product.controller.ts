@@ -9,7 +9,6 @@
 
 import type { Request, Response } from 'express';
 import { productService } from '@/services/product.service.js';
-import type { CreateProductInput, UpdateProductInput, SellProductInput } from '@/models/product.model.js';
 import { isDomainError } from '@/shared/errors.js';
 import { logger } from '@/utils/logger.util.js';
 
@@ -38,7 +37,7 @@ function handleError(error: unknown, res: Response, context: string): void {
 
 /**
  * Get all products for authenticated user with optional filters
- * GET /api/v1/user/products?search=keyword&stockStatus=low-stock&supplier=TechCorp
+ * GET /api/v1/admin/products?search=keyword&stockStatus=low-stock&supplier=TechCorp
  */
 export const getProducts = async (
   req: Request,
@@ -72,7 +71,7 @@ export const getProducts = async (
 
 /**
  * Get single product by ID
- * GET /api/v1/user/products/:id
+ * GET /api/v1/admin/products/:id
  */
 export const getProductById = async (
   req: Request,
@@ -96,7 +95,7 @@ export const getProductById = async (
 
 /**
  * Get product statistics for user
- * GET /api/v1/user/products/stats
+ * GET /api/v1/admin/products/stats
  */
 export const getProductStats = async (
   req: Request,
@@ -113,7 +112,7 @@ export const getProductStats = async (
 
 /**
  * Get low stock products
- * GET /api/v1/user/products/low-stock
+ * GET /api/v1/admin/products/low-stock
  */
 export const getLowStockProducts = async (
   req: Request,
@@ -133,7 +132,7 @@ export const getLowStockProducts = async (
 
 /**
  * Get unique suppliers from products
- * GET /api/v1/user/products/suppliers
+ * GET /api/v1/admin/products/suppliers
  */
 export const getProductSuppliers = async (
   req: Request,
@@ -154,7 +153,7 @@ export const getProductSuppliers = async (
 
 /**
  * Create new product
- * POST /api/v1/user/products
+ * POST /api/v1/admin/products
  */
 export const createProduct = async (
   req: Request,
@@ -162,9 +161,8 @@ export const createProduct = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const input: CreateProductInput = req.body;
-
-    const product = await productService.createProduct(userId, input);
+    // Pass raw body - service handles validation with Zod
+    const product = await productService.createProduct(userId, req.body);
     res.status(201).json(product);
   } catch (error) {
     handleError(error, res, 'create product');
@@ -173,7 +171,7 @@ export const createProduct = async (
 
 /**
  * Update product
- * PUT /api/v1/user/products/:id
+ * PUT /api/v1/admin/products/:id
  */
 export const updateProduct = async (
   req: Request,
@@ -182,14 +180,14 @@ export const updateProduct = async (
   try {
     const userId = req.user!.id;
     const productId = req.params.id;
-    const input: UpdateProductInput = req.body;
 
     if (!productId) {
       res.status(400).json({ error: 'Product ID is required' });
       return;
     }
 
-    const product = await productService.updateProduct(productId, userId, input);
+    // Pass raw body - service handles validation with Zod
+    const product = await productService.updateProduct(productId, userId, req.body);
     res.json(product);
   } catch (error) {
     handleError(error, res, 'update product');
@@ -198,7 +196,7 @@ export const updateProduct = async (
 
 /**
  * Sell product (decrement stock and create transaction)
- * POST /api/v1/user/products/:id/sell
+ * POST /api/v1/admin/products/:id/sell
  */
 export const sellProduct = async (
   req: Request,
@@ -207,14 +205,15 @@ export const sellProduct = async (
   try {
     const userId = req.user!.id;
     const productId = req.params.id;
-    const input: SellProductInput = req.body;
 
     if (!productId) {
       res.status(400).json({ error: 'Product ID is required' });
       return;
     }
 
-    const result = await productService.sellProduct(productId, userId, input.quantity);
+    // Extract quantity - service validates with Zod
+    const quantity = req.body?.quantity;
+    const result = await productService.sellProduct(productId, userId, quantity);
     res.json(result);
   } catch (error) {
     handleError(error, res, 'sell product');
@@ -223,7 +222,7 @@ export const sellProduct = async (
 
 /**
  * Delete product
- * DELETE /api/v1/user/products/:id
+ * DELETE /api/v1/admin/products/:id
  */
 export const deleteProduct = async (
   req: Request,

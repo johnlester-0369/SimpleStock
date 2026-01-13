@@ -3,6 +3,7 @@
  *
  * Business logic layer for supplier operations.
  * Handles orchestration between controllers and repositories.
+ * Uses Zod validators for input validation.
  *
  * @module services/supplier.service
  */
@@ -10,22 +11,21 @@
 import { supplierRepo } from '@/repos/supplier.repo.js';
 import {
   toSupplierResponse,
-  type CreateSupplierInput,
-  type UpdateSupplierInput,
   type SupplierFilterOptions,
   type SupplierResponse,
 } from '@/models/supplier.model.js';
-import { NotFoundError, ValidationError } from '@/shared/errors.js';
+import {
+  NotFoundError,
+  ValidationError,
+  isZodError,
+} from '@/shared/errors.js';
+import {
+  validateCreateSupplier,
+  validateUpdateSupplier,
+  type CreateSupplierInput,
+  type UpdateSupplierInput,
+} from '@/validators/index.js';
 import { logger } from '@/utils/logger.util.js';
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-/**
- * Simple email validation regex
- */
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ============================================================================
 // SERVICE CLASS
@@ -40,95 +40,32 @@ class SupplierService {
   // ==========================================================================
 
   /**
-   * Validate email format
-   */
-  private isValidEmail(email: string): boolean {
-    return EMAIL_REGEX.test(email);
-  }
-
-  /**
-   * Validates supplier creation input
+   * Validates supplier creation input using Zod schema.
    * @throws {ValidationError} If validation fails
    */
-  private validateCreateInput(input: CreateSupplierInput): void {
-    // Validate name
-    if (!input.name || input.name.trim().length === 0) {
-      throw new ValidationError('Supplier name is required', 'name');
-    }
-    if (input.name.trim().length < 2) {
-      throw new ValidationError('Supplier name must be at least 2 characters', 'name');
-    }
-    if (input.name.trim().length > 100) {
-      throw new ValidationError('Supplier name must not exceed 100 characters', 'name');
-    }
-
-    // Validate contact person
-    if (!input.contactPerson || input.contactPerson.trim().length === 0) {
-      throw new ValidationError('Contact person is required', 'contactPerson');
-    }
-    if (input.contactPerson.trim().length < 2) {
-      throw new ValidationError('Contact person must be at least 2 characters', 'contactPerson');
-    }
-    if (input.contactPerson.trim().length > 100) {
-      throw new ValidationError('Contact person must not exceed 100 characters', 'contactPerson');
-    }
-
-    // Validate email
-    if (!input.email || input.email.trim().length === 0) {
-      throw new ValidationError('Email is required', 'email');
-    }
-    if (!this.isValidEmail(input.email.trim())) {
-      throw new ValidationError('Invalid email format', 'email');
-    }
-
-    // Validate phone
-    if (!input.phone || input.phone.trim().length === 0) {
-      throw new ValidationError('Phone is required', 'phone');
+  private validateCreateInput(input: unknown): CreateSupplierInput {
+    try {
+      return validateCreateSupplier(input);
+    } catch (error) {
+      if (isZodError(error)) {
+        throw ValidationError.fromZodError(error);
+      }
+      throw error;
     }
   }
 
   /**
-   * Validates supplier update input
+   * Validates supplier update input using Zod schema.
    * @throws {ValidationError} If validation fails
    */
-  private validateUpdateInput(input: UpdateSupplierInput): void {
-    if (input.name !== undefined) {
-      if (input.name.trim().length === 0) {
-        throw new ValidationError('Supplier name cannot be empty', 'name');
+  private validateUpdateInput(input: unknown): UpdateSupplierInput {
+    try {
+      return validateUpdateSupplier(input);
+    } catch (error) {
+      if (isZodError(error)) {
+        throw ValidationError.fromZodError(error);
       }
-      if (input.name.trim().length < 2) {
-        throw new ValidationError('Supplier name must be at least 2 characters', 'name');
-      }
-      if (input.name.trim().length > 100) {
-        throw new ValidationError('Supplier name must not exceed 100 characters', 'name');
-      }
-    }
-
-    if (input.contactPerson !== undefined) {
-      if (input.contactPerson.trim().length === 0) {
-        throw new ValidationError('Contact person cannot be empty', 'contactPerson');
-      }
-      if (input.contactPerson.trim().length < 2) {
-        throw new ValidationError('Contact person must be at least 2 characters', 'contactPerson');
-      }
-      if (input.contactPerson.trim().length > 100) {
-        throw new ValidationError('Contact person must not exceed 100 characters', 'contactPerson');
-      }
-    }
-
-    if (input.email !== undefined) {
-      if (input.email.trim().length === 0) {
-        throw new ValidationError('Email cannot be empty', 'email');
-      }
-      if (!this.isValidEmail(input.email.trim())) {
-        throw new ValidationError('Invalid email format', 'email');
-      }
-    }
-
-    if (input.phone !== undefined) {
-      if (input.phone.trim().length === 0) {
-        throw new ValidationError('Phone cannot be empty', 'phone');
-      }
+      throw error;
     }
   }
 
@@ -192,14 +129,14 @@ class SupplierService {
    * Create a new supplier
    *
    * @param userId - User ID
-   * @param input - Supplier creation data
+   * @param input - Supplier creation data (validated by Zod)
    * @returns Created supplier response
    * @throws {ValidationError} If input validation fails
    */
-  async createSupplier(userId: string, input: CreateSupplierInput): Promise<SupplierResponse> {
-    this.validateCreateInput(input);
+  async createSupplier(userId: string, input: unknown): Promise<SupplierResponse> {
+    const validatedInput = this.validateCreateInput(input);
 
-    const supplier = await supplierRepo.create(userId, input);
+    const supplier = await supplierRepo.create(userId, validatedInput);
 
     logger.info('Supplier created via service', {
       supplierId: supplier._id.toString(),
@@ -214,7 +151,7 @@ class SupplierService {
    *
    * @param supplierId - Supplier ID
    * @param userId - User ID
-   * @param input - Update data
+   * @param input - Update data (validated by Zod)
    * @returns Updated supplier response
    * @throws {ValidationError} If input validation fails
    * @throws {NotFoundError} If supplier not found
@@ -222,11 +159,11 @@ class SupplierService {
   async updateSupplier(
     supplierId: string,
     userId: string,
-    input: UpdateSupplierInput,
+    input: unknown,
   ): Promise<SupplierResponse> {
-    this.validateUpdateInput(input);
+    const validatedInput = this.validateUpdateInput(input);
 
-    const supplier = await supplierRepo.update(supplierId, userId, input);
+    const supplier = await supplierRepo.update(supplierId, userId, validatedInput);
 
     if (!supplier) {
       throw new NotFoundError('Supplier', supplierId);

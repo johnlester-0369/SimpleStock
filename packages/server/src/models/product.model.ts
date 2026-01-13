@@ -4,6 +4,9 @@
  * Mongoose schema and TypeScript interfaces for Product entity.
  * Products represent inventory items with stock tracking.
  *
+ * Note: Input types are now defined in validators/product.validator.ts
+ * This file focuses on the Mongoose model and response types.
+ *
  * @module models/product.model
  */
 
@@ -28,7 +31,8 @@ export interface IProduct extends Document {
 }
 
 /**
- * Product creation input (without generated fields)
+ * Product creation input (for repository layer)
+ * Validated input from validators/product.validator.ts
  */
 export interface CreateProductInput {
   name: string;
@@ -38,7 +42,8 @@ export interface CreateProductInput {
 }
 
 /**
- * Product update input (partial updates allowed)
+ * Product update input (for repository layer)
+ * Validated input from validators/product.validator.ts
  */
 export interface UpdateProductInput {
   name?: string | undefined;
