@@ -10,7 +10,8 @@
     "build": "tsc && tsc-alias",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "seed:admin": "tsx scripts/seed-admin.ts"
   },
   "keywords": [],
   "author": "",
