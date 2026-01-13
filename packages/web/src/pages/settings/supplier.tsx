@@ -7,6 +7,7 @@ import Dialog from '@/components/ui/Dialog'
 import Card from '@/components/ui/Card'
 import Alert from '@/components/ui/Alert'
 import EmptyState from '@/components/ui/EmptyState'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import {
   Plus,
   Search,
@@ -18,23 +19,11 @@ import {
   Phone,
   MapPin,
 } from 'lucide-react'
-import {
-  validateForm,
-  supplierSchema,
-  type SupplierFormData as ZodSupplierFormData,
-} from '@/utils/validation.util'
 
-/**
- * Supplier interface defining the structure of a supplier
- */
-interface Supplier {
-  id: string
-  name: string
-  contactPerson: string
-  email: string
-  phone: string
-  address: string
-}
+// Import hooks
+import { useSuppliers } from '@/hooks/useSuppliers'
+import { useSupplierMutations } from '@/hooks/useSupplierMutations'
+import type { Supplier } from '@/services/supplier.service'
 
 /**
  * Supplier form state interface
@@ -46,69 +35,6 @@ interface SupplierFormState {
   phone: string
   address: string
 }
-
-/**
- * Initial mock data for suppliers
- * Using supplier names from existing products for consistency
- */
-const INITIAL_SUPPLIERS: Supplier[] = [
-  {
-    id: '1',
-    name: 'TechCorp',
-    contactPerson: 'John Smith',
-    email: 'john.smith@techcorp.com',
-    phone: '+1 (555) 123-4567',
-    address: '123 Tech Avenue, Silicon Valley, CA 94025',
-  },
-  {
-    id: '2',
-    name: 'CableMax',
-    contactPerson: 'Sarah Johnson',
-    email: 'sarah.j@cablemax.com',
-    phone: '+1 (555) 234-5678',
-    address: '456 Cable Street, Austin, TX 78701',
-  },
-  {
-    id: '3',
-    name: 'OfficeGear',
-    contactPerson: 'Michael Brown',
-    email: 'mbrown@officegear.com',
-    phone: '+1 (555) 345-6789',
-    address: '789 Office Park, Seattle, WA 98101',
-  },
-  {
-    id: '4',
-    name: 'LightWorks',
-    contactPerson: 'Emily Davis',
-    email: 'emily.davis@lightworks.com',
-    phone: '+1 (555) 456-7890',
-    address: '321 Light Boulevard, Denver, CO 80202',
-  },
-  {
-    id: '5',
-    name: 'GamerZone',
-    contactPerson: 'David Wilson',
-    email: 'dwilson@gamerzone.com',
-    phone: '+1 (555) 567-8901',
-    address: '654 Gaming Way, Portland, OR 97201',
-  },
-  {
-    id: '6',
-    name: 'SoundMax',
-    contactPerson: 'Lisa Anderson',
-    email: 'l.anderson@soundmax.com',
-    phone: '+1 (555) 678-9012',
-    address: '987 Audio Lane, Nashville, TN 37201',
-  },
-  {
-    id: '7',
-    name: 'CleanTech',
-    contactPerson: 'Robert Martinez',
-    email: 'rmartinez@cleantech.com',
-    phone: '+1 (555) 789-0123',
-    address: '246 Clean Street, Phoenix, AZ 85001',
-  },
-]
 
 /** Number of items per page for supplier list */
 const ITEMS_PER_PAGE = 5
@@ -128,13 +54,38 @@ const EMPTY_SUPPLIER_FORM: SupplierFormState = {
  * A dedicated page for managing suppliers featuring:
  * - Supplier List with Add/Edit/Delete functionality
  * - Search and pagination for suppliers
- * - Zod validation for all operations
+ * - Dynamic data from API via hooks
  */
 const SupplierPage: React.FC = () => {
-  // Supplier states
-  const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS)
+  // Search and pagination state
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+
+  // Fetch suppliers with search filter
+  const {
+    suppliers,
+    loading,
+    error: fetchError,
+    refetch,
+  } = useSuppliers({
+    search: searchQuery,
+  })
+
+  // Mutation handlers
+  const [successMessage, setSuccessMessage] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
+
+  const { isSubmitting, createSupplier, updateSupplier, deleteSupplier } =
+    useSupplierMutations({
+      onSuccess: (message) => {
+        setSuccessMessage(message)
+        setTimeout(() => setSuccessMessage(''), 3000)
+        refetch()
+      },
+      onError: (message) => {
+        setErrorMessage(message)
+      },
+    })
 
   // Supplier dialog states
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false)
@@ -147,23 +98,11 @@ const SupplierPage: React.FC = () => {
     useState<SupplierFormState>(EMPTY_SUPPLIER_FORM)
   const [supplierFormError, setSupplierFormError] = useState('')
 
-  // Filter suppliers based on search query
-  const filteredSuppliers = useMemo(() => {
-    const query = searchQuery.toLowerCase().trim()
-    if (!query) return suppliers
-    return suppliers.filter(
-      (supplier) =>
-        supplier.name.toLowerCase().includes(query) ||
-        supplier.contactPerson.toLowerCase().includes(query) ||
-        supplier.email.toLowerCase().includes(query),
-    )
-  }, [suppliers, searchQuery])
-
   // Paginated suppliers
   const paginatedSuppliers = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-    return filteredSuppliers.slice(startIndex, startIndex + ITEMS_PER_PAGE)
-  }, [filteredSuppliers, currentPage])
+    return suppliers.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+  }, [suppliers, currentPage])
 
   // Reset to first page when search changes
   React.useEffect(() => {
@@ -176,49 +115,25 @@ const SupplierPage: React.FC = () => {
   const resetSupplierForm = () => {
     setSupplierForm(EMPTY_SUPPLIER_FORM)
     setSupplierFormError('')
-  }
-
-  /**
-   * Validate supplier form using Zod
-   * @returns Validated data or null if validation fails
-   */
-  const validateSupplierForm = (): ZodSupplierFormData | null => {
-    const validation = validateForm(supplierSchema, {
-      name: supplierForm.name.trim(),
-      contactPerson: supplierForm.contactPerson.trim(),
-      email: supplierForm.email.trim(),
-      phone: supplierForm.phone.trim(),
-      address: supplierForm.address.trim(),
-    })
-
-    if (!validation.success) {
-      setSupplierFormError(validation.error || 'Validation failed')
-      return null
-    }
-
-    setSupplierFormError('')
-    return validation.data as ZodSupplierFormData
+    setErrorMessage('')
   }
 
   /**
    * Handle adding a new supplier
    */
-  const handleAddSupplier = () => {
-    const validatedData = validateSupplierForm()
-    if (!validatedData) return
+  const handleAddSupplier = async () => {
+    const result = await createSupplier({
+      name: supplierForm.name,
+      contactPerson: supplierForm.contactPerson,
+      email: supplierForm.email,
+      phone: supplierForm.phone,
+      address: supplierForm.address || undefined,
+    })
 
-    const newSupplier: Supplier = {
-      id: `supplier-${Date.now()}`,
-      name: validatedData.name,
-      contactPerson: validatedData.contactPerson,
-      email: validatedData.email,
-      phone: validatedData.phone,
-      address: validatedData.address || '',
+    if (result) {
+      setIsAddSupplierOpen(false)
+      resetSupplierForm()
     }
-
-    setSuppliers((prev) => [...prev, newSupplier])
-    setIsAddSupplierOpen(false)
-    resetSupplierForm()
   }
 
   /**
@@ -234,35 +149,29 @@ const SupplierPage: React.FC = () => {
       address: supplier.address,
     })
     setSupplierFormError('')
+    setErrorMessage('')
     setIsEditSupplierOpen(true)
   }
 
   /**
    * Handle editing a supplier
    */
-  const handleEditSupplier = () => {
+  const handleEditSupplier = async () => {
     if (!selectedSupplier) return
 
-    const validatedData = validateSupplierForm()
-    if (!validatedData) return
+    const result = await updateSupplier(selectedSupplier.id, {
+      name: supplierForm.name,
+      contactPerson: supplierForm.contactPerson,
+      email: supplierForm.email,
+      phone: supplierForm.phone,
+      address: supplierForm.address,
+    })
 
-    setSuppliers((prev) =>
-      prev.map((s) =>
-        s.id === selectedSupplier.id
-          ? {
-              ...s,
-              name: validatedData.name,
-              contactPerson: validatedData.contactPerson,
-              email: validatedData.email,
-              phone: validatedData.phone,
-              address: validatedData.address || '',
-            }
-          : s,
-      ),
-    )
-    setIsEditSupplierOpen(false)
-    setSelectedSupplier(null)
-    resetSupplierForm()
+    if (result) {
+      setIsEditSupplierOpen(false)
+      setSelectedSupplier(null)
+      resetSupplierForm()
+    }
   }
 
   /**
@@ -276,12 +185,15 @@ const SupplierPage: React.FC = () => {
   /**
    * Handle deleting a supplier
    */
-  const handleDeleteSupplier = () => {
+  const handleDeleteSupplier = async () => {
     if (!selectedSupplier) return
 
-    setSuppliers((prev) => prev.filter((s) => s.id !== selectedSupplier.id))
-    setIsDeleteSupplierOpen(false)
-    setSelectedSupplier(null)
+    const success = await deleteSupplier(selectedSupplier.id)
+
+    if (success) {
+      setIsDeleteSupplierOpen(false)
+      setSelectedSupplier(null)
+    }
   }
 
   /**
@@ -292,6 +204,7 @@ const SupplierPage: React.FC = () => {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setSupplierForm((prev) => ({ ...prev, [field]: e.target.value }))
       if (supplierFormError) setSupplierFormError('')
+      if (errorMessage) setErrorMessage('')
     }
 
   /**
@@ -319,6 +232,11 @@ const SupplierPage: React.FC = () => {
   const handleCloseDeleteSupplier = (open: boolean) => {
     setIsDeleteSupplierOpen(open)
     if (!open) setSelectedSupplier(null)
+  }
+
+  // Show loading state during initial load
+  if (loading && suppliers.length === 0) {
+    return <LoadingSpinner />
   }
 
   return (
@@ -361,11 +279,14 @@ const SupplierPage: React.FC = () => {
 
                 <Dialog.Body>
                   <div className="space-y-4">
-                    {supplierFormError && (
+                    {(supplierFormError || errorMessage) && (
                       <Alert
                         variant="error"
-                        title={supplierFormError}
-                        onClose={() => setSupplierFormError('')}
+                        title={supplierFormError || errorMessage}
+                        onClose={() => {
+                          setSupplierFormError('')
+                          setErrorMessage('')
+                        }}
                       />
                     )}
 
@@ -375,6 +296,7 @@ const SupplierPage: React.FC = () => {
                       value={supplierForm.name}
                       onChange={handleSupplierFormChange('name')}
                       leftIcon={<Truck className="h-5 w-5" />}
+                      disabled={isSubmitting}
                     />
 
                     <Input
@@ -383,6 +305,7 @@ const SupplierPage: React.FC = () => {
                       value={supplierForm.contactPerson}
                       onChange={handleSupplierFormChange('contactPerson')}
                       leftIcon={<User className="h-5 w-5" />}
+                      disabled={isSubmitting}
                     />
 
                     <Input
@@ -392,6 +315,7 @@ const SupplierPage: React.FC = () => {
                       value={supplierForm.email}
                       onChange={handleSupplierFormChange('email')}
                       leftIcon={<Mail className="h-5 w-5" />}
+                      disabled={isSubmitting}
                     />
 
                     <Input
@@ -400,6 +324,7 @@ const SupplierPage: React.FC = () => {
                       value={supplierForm.phone}
                       onChange={handleSupplierFormChange('phone')}
                       leftIcon={<Phone className="h-5 w-5" />}
+                      disabled={isSubmitting}
                     />
 
                     <Input
@@ -408,6 +333,7 @@ const SupplierPage: React.FC = () => {
                       value={supplierForm.address}
                       onChange={handleSupplierFormChange('address')}
                       leftIcon={<MapPin className="h-5 w-5" />}
+                      disabled={isSubmitting}
                     />
                   </div>
                 </Dialog.Body>
@@ -416,10 +342,15 @@ const SupplierPage: React.FC = () => {
                   <Button
                     variant="ghost"
                     onClick={() => setIsAddSupplierOpen(false)}
+                    disabled={isSubmitting}
                   >
                     Cancel
                   </Button>
-                  <Button variant="primary" onClick={handleAddSupplier}>
+                  <Button
+                    variant="primary"
+                    onClick={handleAddSupplier}
+                    isLoading={isSubmitting}
+                  >
                     Add Supplier
                   </Button>
                 </Dialog.Footer>
@@ -427,6 +358,24 @@ const SupplierPage: React.FC = () => {
             </Dialog.Positioner>
           </Dialog.Root>
         </div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <Alert
+            variant="success"
+            title={successMessage}
+            onClose={() => setSuccessMessage('')}
+          />
+        )}
+
+        {/* Fetch Error */}
+        {fetchError && (
+          <Alert
+            variant="error"
+            title={fetchError}
+            onClose={() => {}}
+          />
+        )}
 
         {/* Search Bar */}
         <Card.Root padding="md">
@@ -440,15 +389,15 @@ const SupplierPage: React.FC = () => {
               />
             </div>
             <div className="text-sm text-muted flex items-center">
-              {filteredSuppliers.length}{' '}
-              {filteredSuppliers.length === 1 ? 'supplier' : 'suppliers'}
+              {suppliers.length}{' '}
+              {suppliers.length === 1 ? 'supplier' : 'suppliers'}
               {searchQuery && ' (filtered)'}
             </div>
           </div>
         </Card.Root>
 
         {/* Supplier Table or EmptyState */}
-        {filteredSuppliers.length === 0 ? (
+        {suppliers.length === 0 ? (
           <EmptyState
             icon={Truck}
             title={searchQuery ? 'No suppliers found' : 'No suppliers yet'}
@@ -539,7 +488,7 @@ const SupplierPage: React.FC = () => {
             {/* Pagination */}
             <Table.Pagination
               currentPage={currentPage}
-              totalItems={filteredSuppliers.length}
+              totalItems={suppliers.length}
               itemsPerPage={ITEMS_PER_PAGE}
               onPageChange={setCurrentPage}
               showInfo
@@ -564,11 +513,14 @@ const SupplierPage: React.FC = () => {
 
             <Dialog.Body>
               <div className="space-y-4">
-                {supplierFormError && (
+                {(supplierFormError || errorMessage) && (
                   <Alert
                     variant="error"
-                    title={supplierFormError}
-                    onClose={() => setSupplierFormError('')}
+                    title={supplierFormError || errorMessage}
+                    onClose={() => {
+                      setSupplierFormError('')
+                      setErrorMessage('')
+                    }}
                   />
                 )}
 
@@ -578,6 +530,7 @@ const SupplierPage: React.FC = () => {
                   value={supplierForm.name}
                   onChange={handleSupplierFormChange('name')}
                   leftIcon={<Truck className="h-5 w-5" />}
+                  disabled={isSubmitting}
                 />
 
                 <Input
@@ -586,6 +539,7 @@ const SupplierPage: React.FC = () => {
                   value={supplierForm.contactPerson}
                   onChange={handleSupplierFormChange('contactPerson')}
                   leftIcon={<User className="h-5 w-5" />}
+                  disabled={isSubmitting}
                 />
 
                 <Input
@@ -595,6 +549,7 @@ const SupplierPage: React.FC = () => {
                   value={supplierForm.email}
                   onChange={handleSupplierFormChange('email')}
                   leftIcon={<Mail className="h-5 w-5" />}
+                  disabled={isSubmitting}
                 />
 
                 <Input
@@ -603,6 +558,7 @@ const SupplierPage: React.FC = () => {
                   value={supplierForm.phone}
                   onChange={handleSupplierFormChange('phone')}
                   leftIcon={<Phone className="h-5 w-5" />}
+                  disabled={isSubmitting}
                 />
 
                 <Input
@@ -611,6 +567,7 @@ const SupplierPage: React.FC = () => {
                   value={supplierForm.address}
                   onChange={handleSupplierFormChange('address')}
                   leftIcon={<MapPin className="h-5 w-5" />}
+                  disabled={isSubmitting}
                 />
               </div>
             </Dialog.Body>
@@ -619,10 +576,15 @@ const SupplierPage: React.FC = () => {
               <Button
                 variant="ghost"
                 onClick={() => setIsEditSupplierOpen(false)}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button variant="primary" onClick={handleEditSupplier}>
+              <Button
+                variant="primary"
+                onClick={handleEditSupplier}
+                isLoading={isSubmitting}
+              >
                 Save Changes
               </Button>
             </Dialog.Footer>
@@ -644,6 +606,14 @@ const SupplierPage: React.FC = () => {
             </Dialog.Header>
 
             <Dialog.Body>
+              {errorMessage && (
+                <Alert
+                  variant="error"
+                  title={errorMessage}
+                  onClose={() => setErrorMessage('')}
+                  className="mb-4"
+                />
+              )}
               <p className="text-text">
                 Are you sure you want to delete{' '}
                 <span className="font-semibold text-headline">
@@ -657,10 +627,15 @@ const SupplierPage: React.FC = () => {
               <Button
                 variant="ghost"
                 onClick={() => setIsDeleteSupplierOpen(false)}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button variant="danger" onClick={handleDeleteSupplier}>
+              <Button
+                variant="danger"
+                onClick={handleDeleteSupplier}
+                isLoading={isSubmitting}
+              >
                 Delete Supplier
               </Button>
             </Dialog.Footer>

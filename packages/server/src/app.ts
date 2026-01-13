@@ -17,6 +17,11 @@ import { toNodeHandler } from 'better-auth/node';
 import { logger } from '@/utils/logger.util.js';
 import type { AuthInstance } from '@/lib/auth.lib.js';
 
+// Import API routes
+import productRoutes from '@/routes/v1/product.routes.js';
+import supplierRoutes from '@/routes/v1/supplier.routes.js';
+import transactionRoutes from '@/routes/v1/transaction.routes.js';
+
 // ============================================================================
 // APPLICATION FACTORY
 // ============================================================================
@@ -44,6 +49,18 @@ export function createApp(auth: AuthInstance): Express {
   // ==========================================================================
   // MIDDLEWARE
   // ==========================================================================
+
+  /**
+   * JSON body parser middleware
+   * Required for POST/PUT requests with JSON bodies
+   */
+  app.use(express.json());
+
+  /**
+   * URL-encoded body parser middleware
+   * Required for form submissions
+   */
+  app.use(express.urlencoded({ extended: true }));
 
   /**
    * Request logging middleware.
@@ -85,6 +102,13 @@ export function createApp(auth: AuthInstance): Express {
    * All auth routes are handled by Better Auth.
    */
   app.all('/api/v1/user/auth/*', toNodeHandler(auth));
+
+  /**
+   * API v1 routes
+   */
+  app.use('/api/v1/user/products', productRoutes);
+  app.use('/api/v1/user/suppliers', supplierRoutes);
+  app.use('/api/v1/user/transactions', transactionRoutes);
 
   /**
    * Health check / root endpoint.

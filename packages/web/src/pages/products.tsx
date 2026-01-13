@@ -9,6 +9,7 @@ import Card from '@/components/ui/Card'
 import Alert from '@/components/ui/Alert'
 import Dropdown from '@/components/ui/Dropdown'
 import EmptyState from '@/components/ui/EmptyState'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import {
   Plus,
   Search,
@@ -20,23 +21,12 @@ import {
   Filter,
 } from 'lucide-react'
 import { cn } from '@/utils/cn.util'
-import {
-  validateForm,
-  productSchema,
-  createSellProductSchema,
-  type ProductFormData as ZodProductFormData,
-} from '@/utils/validation.util'
 
-/**
- * Product interface defining the structure of a product item
- */
-interface Product {
-  id: string
-  name: string
-  price: number
-  stockQuantity: number
-  supplier: string
-}
+// Import hooks
+import { useProducts } from '@/hooks/useProducts'
+import { useProductMutations } from '@/hooks/useProductMutations'
+import { useSuppliers } from '@/hooks/useSuppliers'
+import type { Product } from '@/services/product.service'
 
 /**
  * Form data interface for add/edit operations (string values for form inputs)
@@ -47,118 +37,6 @@ interface ProductFormState {
   stockQuantity: string
   supplier: string
 }
-
-/**
- * Initial mock data for products
- * Includes various stock levels to demonstrate low stock highlighting
- */
-const INITIAL_PRODUCTS: Product[] = [
-  {
-    id: '1',
-    name: 'Wireless Mouse',
-    price: 29.99,
-    stockQuantity: 45,
-    supplier: 'TechCorp',
-  },
-  {
-    id: '2',
-    name: 'USB-C Cable',
-    price: 12.99,
-    stockQuantity: 3,
-    supplier: 'CableMax',
-  },
-  {
-    id: '3',
-    name: 'Mechanical Keyboard',
-    price: 89.99,
-    stockQuantity: 12,
-    supplier: 'TechCorp',
-  },
-  {
-    id: '4',
-    name: 'Monitor Stand',
-    price: 49.99,
-    stockQuantity: 2,
-    supplier: 'OfficeGear',
-  },
-  {
-    id: '5',
-    name: 'Webcam HD',
-    price: 59.99,
-    stockQuantity: 28,
-    supplier: 'TechCorp',
-  },
-  {
-    id: '6',
-    name: 'USB Hub 7-Port',
-    price: 24.99,
-    stockQuantity: 4,
-    supplier: 'CableMax',
-  },
-  {
-    id: '7',
-    name: 'Laptop Stand Aluminum',
-    price: 39.99,
-    stockQuantity: 15,
-    supplier: 'OfficeGear',
-  },
-  {
-    id: '8',
-    name: 'LED Desk Lamp',
-    price: 34.99,
-    stockQuantity: 8,
-    supplier: 'LightWorks',
-  },
-  {
-    id: '9',
-    name: 'Mousepad XL Gaming',
-    price: 19.99,
-    stockQuantity: 52,
-    supplier: 'GamerZone',
-  },
-  {
-    id: '10',
-    name: 'Headphone Stand Wood',
-    price: 22.99,
-    stockQuantity: 1,
-    supplier: 'OfficeGear',
-  },
-  {
-    id: '11',
-    name: 'Wireless Charger Pad',
-    price: 35.99,
-    stockQuantity: 33,
-    supplier: 'TechCorp',
-  },
-  {
-    id: '12',
-    name: 'Cable Management Kit',
-    price: 15.99,
-    stockQuantity: 0,
-    supplier: 'CableMax',
-  },
-  {
-    id: '13',
-    name: 'Ergonomic Chair Mat',
-    price: 45.99,
-    stockQuantity: 7,
-    supplier: 'OfficeGear',
-  },
-  {
-    id: '14',
-    name: 'Bluetooth Speaker Mini',
-    price: 55.99,
-    stockQuantity: 19,
-    supplier: 'SoundMax',
-  },
-  {
-    id: '15',
-    name: 'Screen Cleaner Kit',
-    price: 8.99,
-    stockQuantity: 64,
-    supplier: 'CleanTech',
-  },
-]
 
 /** Number of items to display per page */
 const ITEMS_PER_PAGE = 8
@@ -183,20 +61,6 @@ const STOCK_FILTER_OPTIONS = [
 ]
 
 /**
- * Supplier options for product form Dropdown
- * Hardcoded based on suppliers from settings/supplier page
- */
-const SUPPLIER_OPTIONS = [
-  { value: 'TechCorp', label: 'TechCorp' },
-  { value: 'CableMax', label: 'CableMax' },
-  { value: 'OfficeGear', label: 'OfficeGear' },
-  { value: 'LightWorks', label: 'LightWorks' },
-  { value: 'GamerZone', label: 'GamerZone' },
-  { value: 'SoundMax', label: 'SoundMax' },
-  { value: 'CleanTech', label: 'CleanTech' },
-]
-
-/**
  * ProductsPage Component
  *
  * A complete products management page featuring:
@@ -210,21 +74,57 @@ const SUPPLIER_OPTIONS = [
  * - Sell product functionality
  * - Low stock highlighting (<5 items)
  * - EmptyState component for empty results
- * - Dropdown for supplier selection
- * - Zod validation for all forms
+ * - Dynamic data from API via hooks
  */
 const ProductsPage: React.FC = () => {
   // URL search params for filter navigation (supports dashboard links)
   const [searchParams] = useSearchParams()
 
-  // Products state
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS)
+  // Filter states
   const [searchQuery, setSearchQuery] = useState('')
+  const [stockFilter, setStockFilter] = useState<
+    'all' | 'in-stock' | 'low-stock' | 'out-of-stock'
+  >('all')
+  const [supplierFilter, setSupplierFilter] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
 
-  // Filter states
-  const [stockFilter, setStockFilter] = useState('all')
-  const [supplierFilter, setSupplierFilter] = useState('all')
+  // Fetch products with filters
+  const {
+    products,
+    stats,
+    suppliers: productSuppliers,
+    loading,
+    error: fetchError,
+    refetch,
+  } = useProducts({
+    search: searchQuery,
+    stockStatus: stockFilter,
+    supplier: supplierFilter,
+  })
+
+  // Fetch suppliers for dropdown
+  const { suppliers: supplierList } = useSuppliers()
+
+  // Mutation handlers
+  const [successMessage, setSuccessMessage] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
+
+  const {
+    isSubmitting,
+    createProduct,
+    updateProduct,
+    sellProduct,
+    deleteProduct,
+  } = useProductMutations({
+    onSuccess: (message) => {
+      setSuccessMessage(message)
+      setTimeout(() => setSuccessMessage(''), 3000)
+      refetch()
+    },
+    onError: (message) => {
+      setErrorMessage(message)
+    },
+  })
 
   // Dialog visibility states
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -243,75 +143,54 @@ const ProductsPage: React.FC = () => {
   // Sync stock filter from URL params (supports dashboard "View All" links)
   useEffect(() => {
     const filterParam = searchParams.get('filter')
-    const validFilterValues = STOCK_FILTER_OPTIONS.map((opt) => opt.value)
+    const validFilterValues = ['all', 'in-stock', 'low-stock', 'out-of-stock']
     if (filterParam && validFilterValues.includes(filterParam)) {
-      setStockFilter(filterParam)
+      setStockFilter(
+        filterParam as 'all' | 'in-stock' | 'low-stock' | 'out-of-stock',
+      )
     }
   }, [searchParams])
 
-  // Generate supplier filter options dynamically from products
+  // Generate supplier filter options dynamically
   const supplierFilterOptions = useMemo(() => {
-    const uniqueSuppliers = [...new Set(products.map((p) => p.supplier))].sort()
+    const uniqueSuppliers = [
+      ...new Set([...productSuppliers, ...supplierList.map((s) => s.name)]),
+    ].sort()
     return [
-      { value: 'all', label: 'All Suppliers' },
+      { value: '', label: 'All Suppliers' },
       ...uniqueSuppliers.map((supplier) => ({
         value: supplier,
         label: supplier,
       })),
     ]
-  }, [products])
+  }, [productSuppliers, supplierList])
 
-  // Filter products based on search query and dropdown filters
-  const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      // Search filter (by name or supplier)
-      const query = searchQuery.toLowerCase().trim()
-      const matchesSearch =
-        !query ||
-        product.name.toLowerCase().includes(query) ||
-        product.supplier.toLowerCase().includes(query)
-
-      // Stock status filter
-      let matchesStockFilter = true
-      if (stockFilter === 'in-stock') {
-        matchesStockFilter = product.stockQuantity >= LOW_STOCK_THRESHOLD
-      } else if (stockFilter === 'low-stock') {
-        matchesStockFilter =
-          product.stockQuantity > 0 &&
-          product.stockQuantity < LOW_STOCK_THRESHOLD
-      } else if (stockFilter === 'out-of-stock') {
-        matchesStockFilter = product.stockQuantity === 0
-      }
-
-      // Supplier filter
-      const matchesSupplierFilter =
-        supplierFilter === 'all' || product.supplier === supplierFilter
-
-      return matchesSearch && matchesStockFilter && matchesSupplierFilter
-    })
-  }, [products, searchQuery, stockFilter, supplierFilter])
+  // Supplier options for product form
+  const supplierFormOptions = useMemo(() => {
+    return supplierList.map((s) => ({
+      value: s.name,
+      label: s.name,
+    }))
+  }, [supplierList])
 
   // Paginated products for display
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-    return filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE)
-  }, [filteredProducts, currentPage])
+    return products.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+  }, [products, currentPage])
 
-  // Count low stock items in filtered results
+  // Count low stock items in current results
   const lowStockCount = useMemo(
     () =>
-      filteredProducts.filter((p) => p.stockQuantity < LOW_STOCK_THRESHOLD)
-        .length,
-    [filteredProducts],
+      products.filter((p) => p.stockQuantity < LOW_STOCK_THRESHOLD).length,
+    [products],
   )
 
   // Check if any filters are active
   const hasActiveFilters =
-    searchQuery.trim() !== '' ||
-    stockFilter !== 'all' ||
-    supplierFilter !== 'all'
+    searchQuery.trim() !== '' || stockFilter !== 'all' || supplierFilter !== ''
 
-  // Reset to first page when search or filters change
+  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1)
   }, [searchQuery, stockFilter, supplierFilter])
@@ -322,6 +201,7 @@ const ProductsPage: React.FC = () => {
   const resetForm = () => {
     setFormData(EMPTY_FORM)
     setFormError('')
+    setErrorMessage('')
   }
 
   /**
@@ -330,48 +210,32 @@ const ProductsPage: React.FC = () => {
   const clearFilters = () => {
     setSearchQuery('')
     setStockFilter('all')
-    setSupplierFilter('all')
-  }
-
-  /**
-   * Validate product form data using Zod
-   * @returns Validated data or null if validation fails
-   */
-  const validateProductForm = (): ZodProductFormData | null => {
-    const validation = validateForm(productSchema, {
-      name: formData.name.trim(),
-      price: formData.price,
-      stockQuantity: formData.stockQuantity,
-      supplier: formData.supplier,
-    })
-
-    if (!validation.success) {
-      setFormError(validation.error || 'Validation failed')
-      return null
-    }
-
-    setFormError('')
-    return validation.data as ZodProductFormData
+    setSupplierFilter('')
   }
 
   /**
    * Handle adding a new product
    */
-  const handleAddProduct = () => {
-    const validatedData = validateProductForm()
-    if (!validatedData) return
+  const handleAddProduct = async () => {
+    const price = parseFloat(formData.price)
+    const stockQuantity = parseInt(formData.stockQuantity, 10)
 
-    const newProduct: Product = {
-      id: `product-${Date.now()}`,
-      name: validatedData.name,
-      price: validatedData.price,
-      stockQuantity: validatedData.stockQuantity,
-      supplier: validatedData.supplier,
+    if (isNaN(price) || isNaN(stockQuantity)) {
+      setFormError('Please enter valid numbers for price and stock quantity')
+      return
     }
 
-    setProducts((prev) => [...prev, newProduct])
-    setIsAddDialogOpen(false)
-    resetForm()
+    const result = await createProduct({
+      name: formData.name,
+      price,
+      stockQuantity,
+      supplier: formData.supplier,
+    })
+
+    if (result) {
+      setIsAddDialogOpen(false)
+      resetForm()
+    }
   }
 
   /**
@@ -386,34 +250,36 @@ const ProductsPage: React.FC = () => {
       supplier: product.supplier,
     })
     setFormError('')
+    setErrorMessage('')
     setIsEditDialogOpen(true)
   }
 
   /**
    * Handle editing an existing product
    */
-  const handleEditProduct = () => {
+  const handleEditProduct = async () => {
     if (!selectedProduct) return
 
-    const validatedData = validateProductForm()
-    if (!validatedData) return
+    const price = parseFloat(formData.price)
+    const stockQuantity = parseInt(formData.stockQuantity, 10)
 
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === selectedProduct.id
-          ? {
-              ...p,
-              name: validatedData.name,
-              price: validatedData.price,
-              stockQuantity: validatedData.stockQuantity,
-              supplier: validatedData.supplier,
-            }
-          : p,
-      ),
-    )
-    setIsEditDialogOpen(false)
-    setSelectedProduct(null)
-    resetForm()
+    if (isNaN(price) || isNaN(stockQuantity)) {
+      setFormError('Please enter valid numbers for price and stock quantity')
+      return
+    }
+
+    const result = await updateProduct(selectedProduct.id, {
+      name: formData.name,
+      price,
+      stockQuantity,
+      supplier: formData.supplier,
+    })
+
+    if (result) {
+      setIsEditDialogOpen(false)
+      setSelectedProduct(null)
+      resetForm()
+    }
   }
 
   /**
@@ -427,12 +293,15 @@ const ProductsPage: React.FC = () => {
   /**
    * Handle deleting a product
    */
-  const handleDeleteProduct = () => {
+  const handleDeleteProduct = async () => {
     if (!selectedProduct) return
 
-    setProducts((prev) => prev.filter((p) => p.id !== selectedProduct.id))
-    setIsDeleteDialogOpen(false)
-    setSelectedProduct(null)
+    const success = await deleteProduct(selectedProduct.id)
+
+    if (success) {
+      setIsDeleteDialogOpen(false)
+      setSelectedProduct(null)
+    }
   }
 
   /**
@@ -442,37 +311,35 @@ const ProductsPage: React.FC = () => {
     setSelectedProduct(product)
     setSellQuantity('1')
     setFormError('')
+    setErrorMessage('')
     setIsSellDialogOpen(true)
   }
 
   /**
-   * Handle selling a product (reducing stock) with Zod validation
+   * Handle selling a product (reducing stock)
    */
-  const handleSellProduct = () => {
+  const handleSellProduct = async () => {
     if (!selectedProduct) return
 
-    // Create dynamic schema with max quantity
-    const sellSchema = createSellProductSchema(selectedProduct.stockQuantity)
-    const validation = validateForm(sellSchema, { quantity: sellQuantity })
-
-    if (!validation.success) {
-      setFormError(validation.error || 'Validation failed')
+    const quantity = parseInt(sellQuantity, 10)
+    if (isNaN(quantity) || quantity < 1) {
+      setFormError('Please enter a valid quantity')
       return
     }
 
-    const quantity = validation.data?.quantity as number
+    if (quantity > selectedProduct.stockQuantity) {
+      setFormError(`Insufficient stock. Available: ${selectedProduct.stockQuantity}`)
+      return
+    }
 
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === selectedProduct.id
-          ? { ...p, stockQuantity: p.stockQuantity - quantity }
-          : p,
-      ),
-    )
-    setIsSellDialogOpen(false)
-    setSelectedProduct(null)
-    setSellQuantity('1')
-    setFormError('')
+    const result = await sellProduct(selectedProduct.id, quantity)
+
+    if (result) {
+      setIsSellDialogOpen(false)
+      setSelectedProduct(null)
+      setSellQuantity('1')
+      setFormError('')
+    }
   }
 
   /**
@@ -499,15 +366,16 @@ const ProductsPage: React.FC = () => {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setFormData((prev) => ({ ...prev, [field]: e.target.value }))
       if (formError) setFormError('')
+      if (errorMessage) setErrorMessage('')
     }
 
   /**
    * Handle supplier Dropdown change
-   * Dropdown onChange returns value directly, not an event
    */
   const handleSupplierChange = (value: string) => {
     setFormData((prev) => ({ ...prev, supplier: value }))
     if (formError) setFormError('')
+    if (errorMessage) setErrorMessage('')
   }
 
   /**
@@ -546,7 +414,13 @@ const ProductsPage: React.FC = () => {
       setSelectedProduct(null)
       setSellQuantity('1')
       setFormError('')
+      setErrorMessage('')
     }
+  }
+
+  // Show loading spinner during initial load
+  if (loading && products.length === 0) {
+    return <LoadingSpinner />
   }
 
   return (
@@ -587,11 +461,14 @@ const ProductsPage: React.FC = () => {
 
                 <Dialog.Body>
                   <div className="space-y-4">
-                    {formError && (
+                    {(formError || errorMessage) && (
                       <Alert
                         variant="error"
-                        title={formError}
-                        onClose={() => setFormError('')}
+                        title={formError || errorMessage}
+                        onClose={() => {
+                          setFormError('')
+                          setErrorMessage('')
+                        }}
                       />
                     )}
 
@@ -600,6 +477,7 @@ const ProductsPage: React.FC = () => {
                       placeholder="Enter product name"
                       value={formData.name}
                       onChange={handleFormChange('name')}
+                      disabled={isSubmitting}
                     />
 
                     <Input
@@ -610,6 +488,7 @@ const ProductsPage: React.FC = () => {
                       placeholder="0.00"
                       value={formData.price}
                       onChange={handleFormChange('price')}
+                      disabled={isSubmitting}
                     />
 
                     <Input
@@ -619,16 +498,18 @@ const ProductsPage: React.FC = () => {
                       placeholder="0"
                       value={formData.stockQuantity}
                       onChange={handleFormChange('stockQuantity')}
+                      disabled={isSubmitting}
                     />
 
                     <Dropdown
                       label="Supplier"
-                      options={SUPPLIER_OPTIONS}
+                      options={supplierFormOptions}
                       value={formData.supplier}
                       onChange={handleSupplierChange}
                       placeholder="Select a supplier"
                       size="md"
                       fullWidth
+                      disabled={isSubmitting}
                     />
                   </div>
                 </Dialog.Body>
@@ -637,10 +518,15 @@ const ProductsPage: React.FC = () => {
                   <Button
                     variant="ghost"
                     onClick={() => setIsAddDialogOpen(false)}
+                    disabled={isSubmitting}
                   >
                     Cancel
                   </Button>
-                  <Button variant="primary" onClick={handleAddProduct}>
+                  <Button
+                    variant="primary"
+                    onClick={handleAddProduct}
+                    isLoading={isSubmitting}
+                  >
                     Add Product
                   </Button>
                 </Dialog.Footer>
@@ -648,6 +534,24 @@ const ProductsPage: React.FC = () => {
             </Dialog.Positioner>
           </Dialog.Root>
         </div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <Alert
+            variant="success"
+            title={successMessage}
+            onClose={() => setSuccessMessage('')}
+          />
+        )}
+
+        {/* Fetch Error */}
+        {fetchError && (
+          <Alert
+            variant="error"
+            title={fetchError}
+            onClose={() => {}}
+          />
+        )}
 
         {/* Search and Filter Bar */}
         <Card.Root padding="md">
@@ -673,7 +577,11 @@ const ProductsPage: React.FC = () => {
                 <Dropdown
                   options={STOCK_FILTER_OPTIONS}
                   value={stockFilter}
-                  onChange={setStockFilter}
+                  onChange={(val) =>
+                    setStockFilter(
+                      val as 'all' | 'in-stock' | 'low-stock' | 'out-of-stock',
+                    )
+                  }
                   placeholder="Filter by stock"
                   size="md"
                   fullWidth
@@ -704,8 +612,8 @@ const ProductsPage: React.FC = () => {
             {/* Stats Row */}
             <div className="flex items-center gap-4 text-sm text-muted pt-2 border-t border-divider">
               <span>
-                {filteredProducts.length}{' '}
-                {filteredProducts.length === 1 ? 'product' : 'products'}
+                {products.length}{' '}
+                {products.length === 1 ? 'product' : 'products'}
                 {hasActiveFilters && ' (filtered)'}
               </span>
               {lowStockCount > 0 && (
@@ -714,12 +622,17 @@ const ProductsPage: React.FC = () => {
                   {lowStockCount} low stock
                 </span>
               )}
+              {stats.totalValue > 0 && (
+                <span>
+                  Total value: {formatPrice(stats.totalValue)}
+                </span>
+              )}
             </div>
           </div>
         </Card.Root>
 
         {/* Products Table or EmptyState */}
-        {filteredProducts.length === 0 ? (
+        {products.length === 0 ? (
           <EmptyState
             icon={Package}
             title={hasActiveFilters ? 'No products found' : 'No products yet'}
@@ -840,7 +753,7 @@ const ProductsPage: React.FC = () => {
             {/* Pagination using Table.Pagination */}
             <Table.Pagination
               currentPage={currentPage}
-              totalItems={filteredProducts.length}
+              totalItems={products.length}
               itemsPerPage={ITEMS_PER_PAGE}
               onPageChange={setCurrentPage}
               showInfo
@@ -862,11 +775,14 @@ const ProductsPage: React.FC = () => {
 
             <Dialog.Body>
               <div className="space-y-4">
-                {formError && (
+                {(formError || errorMessage) && (
                   <Alert
                     variant="error"
-                    title={formError}
-                    onClose={() => setFormError('')}
+                    title={formError || errorMessage}
+                    onClose={() => {
+                      setFormError('')
+                      setErrorMessage('')
+                    }}
                   />
                 )}
 
@@ -875,6 +791,7 @@ const ProductsPage: React.FC = () => {
                   placeholder="Enter product name"
                   value={formData.name}
                   onChange={handleFormChange('name')}
+                  disabled={isSubmitting}
                 />
 
                 <Input
@@ -885,6 +802,7 @@ const ProductsPage: React.FC = () => {
                   placeholder="0.00"
                   value={formData.price}
                   onChange={handleFormChange('price')}
+                  disabled={isSubmitting}
                 />
 
                 <Input
@@ -894,16 +812,18 @@ const ProductsPage: React.FC = () => {
                   placeholder="0"
                   value={formData.stockQuantity}
                   onChange={handleFormChange('stockQuantity')}
+                  disabled={isSubmitting}
                 />
 
                 <Dropdown
                   label="Supplier"
-                  options={SUPPLIER_OPTIONS}
+                  options={supplierFormOptions}
                   value={formData.supplier}
                   onChange={handleSupplierChange}
                   placeholder="Select a supplier"
                   size="md"
                   fullWidth
+                  disabled={isSubmitting}
                 />
               </div>
             </Dialog.Body>
@@ -912,10 +832,15 @@ const ProductsPage: React.FC = () => {
               <Button
                 variant="ghost"
                 onClick={() => setIsEditDialogOpen(false)}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button variant="primary" onClick={handleEditProduct}>
+              <Button
+                variant="primary"
+                onClick={handleEditProduct}
+                isLoading={isSubmitting}
+              >
                 Save Changes
               </Button>
             </Dialog.Footer>
@@ -937,6 +862,14 @@ const ProductsPage: React.FC = () => {
             </Dialog.Header>
 
             <Dialog.Body>
+              {errorMessage && (
+                <Alert
+                  variant="error"
+                  title={errorMessage}
+                  onClose={() => setErrorMessage('')}
+                  className="mb-4"
+                />
+              )}
               <p className="text-text">
                 Are you sure you want to delete{' '}
                 <span className="font-semibold text-headline">
@@ -950,10 +883,15 @@ const ProductsPage: React.FC = () => {
               <Button
                 variant="ghost"
                 onClick={() => setIsDeleteDialogOpen(false)}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button variant="danger" onClick={handleDeleteProduct}>
+              <Button
+                variant="danger"
+                onClick={handleDeleteProduct}
+                isLoading={isSubmitting}
+              >
                 Delete Product
               </Button>
             </Dialog.Footer>
@@ -973,11 +911,14 @@ const ProductsPage: React.FC = () => {
 
             <Dialog.Body>
               <div className="space-y-4">
-                {formError && (
+                {(formError || errorMessage) && (
                   <Alert
                     variant="error"
-                    title={formError}
-                    onClose={() => setFormError('')}
+                    title={formError || errorMessage}
+                    onClose={() => {
+                      setFormError('')
+                      setErrorMessage('')
+                    }}
                   />
                 )}
 
@@ -1016,7 +957,9 @@ const ProductsPage: React.FC = () => {
                   onChange={(e) => {
                     setSellQuantity(e.target.value)
                     if (formError) setFormError('')
+                    if (errorMessage) setErrorMessage('')
                   }}
+                  disabled={isSubmitting}
                 />
 
                 {selectedProduct && parseInt(sellQuantity, 10) > 0 && (
@@ -1037,6 +980,7 @@ const ProductsPage: React.FC = () => {
               <Button
                 variant="ghost"
                 onClick={() => setIsSellDialogOpen(false)}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
@@ -1044,6 +988,7 @@ const ProductsPage: React.FC = () => {
                 variant="primary"
                 leftIcon={<ShoppingCart className="h-4 w-4" />}
                 onClick={handleSellProduct}
+                isLoading={isSubmitting}
               >
                 Confirm Sale
               </Button>
