@@ -2,14 +2,14 @@
  * Transaction Controller
  *
  * HTTP request handlers for transaction operations.
- * Handles validation, calls repository, and formats responses.
+ * Delegates business logic to TransactionService.
  *
  * @module controllers/transaction.controller
  */
 
 import type { Request, Response } from 'express';
-import { transactionRepo } from '@/repos/transaction.repo.js';
-import { toTransactionResponse } from '@/models/transaction.model.js';
+import { transactionService, type TransactionPeriod } from '@/services/transaction.service.js';
+import { isDomainError } from '@/shared/errors.js';
 import { logger } from '@/utils/logger.util.js';
 
 // ============================================================================
@@ -17,55 +17,29 @@ import { logger } from '@/utils/logger.util.js';
 // ============================================================================
 
 /**
- * Parse date string to Date object, returning undefined if invalid
+ * Handle domain errors and send appropriate HTTP response
  */
-function parseDate(dateStr: string | undefined): Date | undefined {
-  if (!dateStr) return undefined;
-  const date = new Date(dateStr);
-  return isNaN(date.getTime()) ? undefined : date;
+function handleError(error: unknown, res: Response, context: string): void {
+  if (isDomainError(error)) {
+    res.status(error.statusCode).json({ error: error.message });
+    return;
+  }
+
+  logger.error(`Error in ${context}`, {
+    error: error instanceof Error ? error.message : String(error),
+  });
+  res.status(500).json({ error: `Failed to ${context.toLowerCase()}` });
 }
 
 /**
- * Get the start of the current week (Sunday)
+ * Parse and validate period parameter
  */
-function getWeekStart(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  d.setDate(d.getDate() - day);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-/**
- * Get the end of the current week (Saturday)
- */
-function getWeekEnd(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  d.setDate(d.getDate() + (6 - day));
-  d.setHours(23, 59, 59, 999);
-  return d;
-}
-
-/**
- * Get the start of the current month
- */
-function getMonthStart(date: Date): Date {
-  const d = new Date(date);
-  d.setDate(1);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-/**
- * Get the end of the current month
- */
-function getMonthEnd(date: Date): Date {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + 1);
-  d.setDate(0);
-  d.setHours(23, 59, 59, 999);
-  return d;
+function parsePeriod(periodParam: string | undefined): TransactionPeriod | undefined {
+  const validPeriods: TransactionPeriod[] = ['today', 'week', 'month'];
+  if (periodParam && validPeriods.includes(periodParam as TransactionPeriod)) {
+    return periodParam as TransactionPeriod;
+  }
+  return undefined;
 }
 
 // ============================================================================
@@ -83,49 +57,21 @@ export const getTransactions = async (
   try {
     const userId = req.user!.id;
 
-    // Parse query parameters
-    const searchParam = req.query.search as string | undefined;
-    const periodParam = req.query.period as string | undefined;
-    const startDateParam = req.query.startDate as string | undefined;
-    const endDateParam = req.query.endDate as string | undefined;
+    const search = req.query.search as string | undefined;
+    const period = parsePeriod(req.query.period as string | undefined);
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
 
-    // Build date range based on period or explicit dates
-    let startDate: Date | undefined;
-    let endDate: Date | undefined;
-    const now = new Date();
-
-    if (periodParam === 'today') {
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-      endDate = new Date(now);
-      endDate.setHours(23, 59, 59, 999);
-    } else if (periodParam === 'week') {
-      startDate = getWeekStart(now);
-      endDate = getWeekEnd(now);
-    } else if (periodParam === 'month') {
-      startDate = getMonthStart(now);
-      endDate = getMonthEnd(now);
-    } else {
-      startDate = parseDate(startDateParam);
-      endDate = parseDate(endDateParam);
-    }
-
-    const transactions = await transactionRepo.findMany({
-      userId,
-      search: searchParam,
+    const transactions = await transactionService.getTransactions(userId, {
+      search,
+      period,
       startDate,
       endDate,
     });
 
-    const response = transactions.map(toTransactionResponse);
-
-    res.json({ transactions: response });
+    res.json({ transactions });
   } catch (error) {
-    logger.error('Error fetching transactions', {
-      error: error instanceof Error ? error.message : String(error),
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to fetch transactions' });
+    handleError(error, res, 'fetch transactions');
   }
 };
 
@@ -146,21 +92,10 @@ export const getTransactionById = async (
       return;
     }
 
-    const transaction = await transactionRepo.findById(transactionId, userId);
-
-    if (!transaction) {
-      res.status(404).json({ error: 'Transaction not found' });
-      return;
-    }
-
-    res.json(toTransactionResponse(transaction));
+    const transaction = await transactionService.getTransactionById(transactionId, userId);
+    res.json(transaction);
   } catch (error) {
-    logger.error('Error fetching transaction', {
-      error: error instanceof Error ? error.message : String(error),
-      transactionId: req.params.id,
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to fetch transaction' });
+    handleError(error, res, 'fetch transaction');
   }
 };
 
@@ -174,40 +109,20 @@ export const getTransactionStats = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const periodParam = req.query.period as string | undefined;
-    const startDateParam = req.query.startDate as string | undefined;
-    const endDateParam = req.query.endDate as string | undefined;
 
-    // Build date range
-    let startDate: Date | undefined;
-    let endDate: Date | undefined;
-    const now = new Date();
+    const period = parsePeriod(req.query.period as string | undefined);
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
 
-    if (periodParam === 'today') {
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-      endDate = new Date(now);
-      endDate.setHours(23, 59, 59, 999);
-    } else if (periodParam === 'week') {
-      startDate = getWeekStart(now);
-      endDate = getWeekEnd(now);
-    } else if (periodParam === 'month') {
-      startDate = getMonthStart(now);
-      endDate = getMonthEnd(now);
-    } else {
-      startDate = parseDate(startDateParam);
-      endDate = parseDate(endDateParam);
-    }
-
-    const stats = await transactionRepo.getStats(userId, startDate, endDate);
+    const stats = await transactionService.getTransactionStats(userId, {
+      period,
+      startDate,
+      endDate,
+    });
 
     res.json(stats);
   } catch (error) {
-    logger.error('Error fetching transaction stats', {
-      error: error instanceof Error ? error.message : String(error),
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to fetch transaction statistics' });
+    handleError(error, res, 'fetch transaction statistics');
   }
 };
 
@@ -221,45 +136,20 @@ export const getDailySales = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const periodParam = req.query.period as string | undefined;
-    const startDateParam = req.query.startDate as string | undefined;
-    const endDateParam = req.query.endDate as string | undefined;
 
-    // Build date range
-    let startDate: Date;
-    let endDate: Date;
-    const now = new Date();
+    const period = parsePeriod(req.query.period as string | undefined);
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
 
-    if (periodParam === 'week') {
-      startDate = getWeekStart(now);
-      endDate = getWeekEnd(now);
-    } else if (periodParam === 'month') {
-      startDate = getMonthStart(now);
-      endDate = getMonthEnd(now);
-    } else {
-      startDate = parseDate(startDateParam) ?? getWeekStart(now);
-      endDate = parseDate(endDateParam) ?? getWeekEnd(now);
-    }
-
-    const dailySales = await transactionRepo.getDailySales(
-      userId,
+    const result = await transactionService.getDailySales(userId, {
+      period,
       startDate,
       endDate,
-    );
+    });
 
-    res.json({
-      dailySales,
-      period: {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-      },
-    });
+    res.json(result);
   } catch (error) {
-    logger.error('Error fetching daily sales', {
-      error: error instanceof Error ? error.message : String(error),
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to fetch daily sales' });
+    handleError(error, res, 'fetch daily sales');
   }
 };
 
@@ -276,15 +166,9 @@ export const getRecentTransactions = async (
     const limitParam = req.query.limit as string | undefined;
     const limit = limitParam ? parseInt(limitParam, 10) : 10;
 
-    const transactions = await transactionRepo.getRecent(userId, limit);
-    const response = transactions.map(toTransactionResponse);
-
-    res.json({ transactions: response });
+    const transactions = await transactionService.getRecentTransactions(userId, limit);
+    res.json({ transactions });
   } catch (error) {
-    logger.error('Error fetching recent transactions', {
-      error: error instanceof Error ? error.message : String(error),
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to fetch recent transactions' });
+    handleError(error, res, 'fetch recent transactions');
   }
 };

@@ -2,35 +2,34 @@
  * Supplier Controller
  *
  * HTTP request handlers for supplier operations.
- * Handles validation, calls repository, and formats responses.
+ * Delegates business logic to SupplierService.
  *
  * @module controllers/supplier.controller
  */
 
 import type { Request, Response } from 'express';
-import { supplierRepo } from '@/repos/supplier.repo.js';
-import {
-  toSupplierResponse,
-  type CreateSupplierInput,
-  type UpdateSupplierInput,
-  type SupplierFilterOptions,
-} from '@/models/supplier.model.js';
+import { supplierService } from '@/services/supplier.service.js';
+import type { CreateSupplierInput, UpdateSupplierInput } from '@/models/supplier.model.js';
+import { isDomainError } from '@/shared/errors.js';
 import { logger } from '@/utils/logger.util.js';
 
 // ============================================================================
-// VALIDATION HELPERS
+// HELPER FUNCTIONS
 // ============================================================================
 
 /**
- * Simple email validation regex
+ * Handle domain errors and send appropriate HTTP response
  */
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function handleError(error: unknown, res: Response, context: string): void {
+  if (isDomainError(error)) {
+    res.status(error.statusCode).json({ error: error.message });
+    return;
+  }
 
-/**
- * Validate email format
- */
-function isValidEmail(email: string): boolean {
-  return EMAIL_REGEX.test(email);
+  logger.error(`Error in ${context}`, {
+    error: error instanceof Error ? error.message : String(error),
+  });
+  res.status(500).json({ error: `Failed to ${context.toLowerCase()}` });
 }
 
 // ============================================================================
@@ -47,27 +46,12 @@ export const getSuppliers = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
+    const search = req.query.search as string | undefined;
 
-    // Parse query parameters
-    const searchParam = req.query.search as string | undefined;
-
-    // Build filter options
-    const filterOptions: SupplierFilterOptions = { userId };
-
-    if (searchParam) {
-      filterOptions.search = searchParam;
-    }
-
-    const suppliers = await supplierRepo.findMany(filterOptions);
-    const response = suppliers.map(toSupplierResponse);
-
-    res.json({ suppliers: response });
+    const suppliers = await supplierService.getSuppliers(userId, { search });
+    res.json({ suppliers });
   } catch (error) {
-    logger.error('Error fetching suppliers', {
-      error: error instanceof Error ? error.message : String(error),
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to fetch suppliers' });
+    handleError(error, res, 'fetch suppliers');
   }
 };
 
@@ -88,21 +72,10 @@ export const getSupplierById = async (
       return;
     }
 
-    const supplier = await supplierRepo.findById(supplierId, userId);
-
-    if (!supplier) {
-      res.status(404).json({ error: 'Supplier not found' });
-      return;
-    }
-
-    res.json(toSupplierResponse(supplier));
+    const supplier = await supplierService.getSupplierById(supplierId, userId);
+    res.json(supplier);
   } catch (error) {
-    logger.error('Error fetching supplier', {
-      error: error instanceof Error ? error.message : String(error),
-      supplierId: req.params.id,
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to fetch supplier' });
+    handleError(error, res, 'fetch supplier');
   }
 };
 
@@ -116,15 +89,10 @@ export const getSupplierNames = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const names = await supplierRepo.getNames(userId);
-
+    const names = await supplierService.getSupplierNames(userId);
     res.json({ names });
   } catch (error) {
-    logger.error('Error fetching supplier names', {
-      error: error instanceof Error ? error.message : String(error),
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to fetch supplier names' });
+    handleError(error, res, 'fetch supplier names');
   }
 };
 
@@ -144,64 +112,10 @@ export const createSupplier = async (
     const userId = req.user!.id;
     const input: CreateSupplierInput = req.body;
 
-    // Validate name
-    if (!input.name || input.name.trim().length === 0) {
-      res.status(400).json({ error: 'Supplier name is required' });
-      return;
-    }
-    if (input.name.trim().length < 2) {
-      res.status(400).json({ error: 'Supplier name must be at least 2 characters' });
-      return;
-    }
-    if (input.name.trim().length > 100) {
-      res.status(400).json({ error: 'Supplier name must not exceed 100 characters' });
-      return;
-    }
-
-    // Validate contact person
-    if (!input.contactPerson || input.contactPerson.trim().length === 0) {
-      res.status(400).json({ error: 'Contact person is required' });
-      return;
-    }
-    if (input.contactPerson.trim().length < 2) {
-      res.status(400).json({ error: 'Contact person must be at least 2 characters' });
-      return;
-    }
-    if (input.contactPerson.trim().length > 100) {
-      res.status(400).json({ error: 'Contact person must not exceed 100 characters' });
-      return;
-    }
-
-    // Validate email
-    if (!input.email || input.email.trim().length === 0) {
-      res.status(400).json({ error: 'Email is required' });
-      return;
-    }
-    if (!isValidEmail(input.email.trim())) {
-      res.status(400).json({ error: 'Invalid email format' });
-      return;
-    }
-
-    // Validate phone
-    if (!input.phone || input.phone.trim().length === 0) {
-      res.status(400).json({ error: 'Phone is required' });
-      return;
-    }
-
-    const supplier = await supplierRepo.create(userId, input);
-
-    logger.info('Supplier created', {
-      supplierId: supplier._id.toString(),
-      userId,
-    });
-
-    res.status(201).json(toSupplierResponse(supplier));
+    const supplier = await supplierService.createSupplier(userId, input);
+    res.status(201).json(supplier);
   } catch (error) {
-    logger.error('Error creating supplier', {
-      error: error instanceof Error ? error.message : String(error),
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to create supplier' });
+    handleError(error, res, 'create supplier');
   }
 };
 
@@ -223,75 +137,10 @@ export const updateSupplier = async (
       return;
     }
 
-    // Validate name if being updated
-    if (input.name !== undefined) {
-      if (input.name.trim().length === 0) {
-        res.status(400).json({ error: 'Supplier name cannot be empty' });
-        return;
-      }
-      if (input.name.trim().length < 2) {
-        res.status(400).json({ error: 'Supplier name must be at least 2 characters' });
-        return;
-      }
-      if (input.name.trim().length > 100) {
-        res.status(400).json({ error: 'Supplier name must not exceed 100 characters' });
-        return;
-      }
-    }
-
-    // Validate contact person if being updated
-    if (input.contactPerson !== undefined) {
-      if (input.contactPerson.trim().length === 0) {
-        res.status(400).json({ error: 'Contact person cannot be empty' });
-        return;
-      }
-      if (input.contactPerson.trim().length < 2) {
-        res.status(400).json({ error: 'Contact person must be at least 2 characters' });
-        return;
-      }
-      if (input.contactPerson.trim().length > 100) {
-        res.status(400).json({ error: 'Contact person must not exceed 100 characters' });
-        return;
-      }
-    }
-
-    // Validate email if being updated
-    if (input.email !== undefined) {
-      if (input.email.trim().length === 0) {
-        res.status(400).json({ error: 'Email cannot be empty' });
-        return;
-      }
-      if (!isValidEmail(input.email.trim())) {
-        res.status(400).json({ error: 'Invalid email format' });
-        return;
-      }
-    }
-
-    // Validate phone if being updated
-    if (input.phone !== undefined) {
-      if (input.phone.trim().length === 0) {
-        res.status(400).json({ error: 'Phone cannot be empty' });
-        return;
-      }
-    }
-
-    const supplier = await supplierRepo.update(supplierId, userId, input);
-
-    if (!supplier) {
-      res.status(404).json({ error: 'Supplier not found' });
-      return;
-    }
-
-    logger.info('Supplier updated', { supplierId, userId });
-
-    res.json(toSupplierResponse(supplier));
+    const supplier = await supplierService.updateSupplier(supplierId, userId, input);
+    res.json(supplier);
   } catch (error) {
-    logger.error('Error updating supplier', {
-      error: error instanceof Error ? error.message : String(error),
-      supplierId: req.params.id,
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to update supplier' });
+    handleError(error, res, 'update supplier');
   }
 };
 
@@ -312,22 +161,9 @@ export const deleteSupplier = async (
       return;
     }
 
-    const deleted = await supplierRepo.delete(supplierId, userId);
-
-    if (!deleted) {
-      res.status(404).json({ error: 'Supplier not found' });
-      return;
-    }
-
-    logger.info('Supplier deleted', { supplierId, userId });
-
+    await supplierService.deleteSupplier(supplierId, userId);
     res.status(204).send();
   } catch (error) {
-    logger.error('Error deleting supplier', {
-      error: error instanceof Error ? error.message : String(error),
-      supplierId: req.params.id,
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to delete supplier' });
+    handleError(error, res, 'delete supplier');
   }
 };

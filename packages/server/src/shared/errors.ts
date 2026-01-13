@@ -1,0 +1,135 @@
+/**
+ * Domain Error Classes
+ *
+ * Custom error hierarchy for service layer exceptions.
+ * Controllers translate these to appropriate HTTP responses.
+ *
+ * @module shared/errors
+ */
+
+// ============================================================================
+// BASE ERROR CLASSES
+// ============================================================================
+
+/**
+ * Base class for all domain errors.
+ * Extends Error with additional metadata for proper error handling.
+ */
+export abstract class DomainError extends Error {
+  /**
+   * Error code for client identification
+   */
+  abstract readonly code: string;
+
+  /**
+   * HTTP status code suggestion for controllers
+   */
+  abstract readonly statusCode: number;
+
+  constructor(message: string) {
+    super(message);
+    this.name = this.constructor.name;
+    Error.captureStackTrace(this, this.constructor);
+  }
+
+  /**
+   * Convert error to JSON-serializable object
+   */
+  toJSON(): { code: string; message: string } {
+    return {
+      code: this.code,
+      message: this.message,
+    };
+  }
+}
+
+// ============================================================================
+// SPECIFIC ERROR CLASSES
+// ============================================================================
+
+/**
+ * Error thrown when a requested resource is not found.
+ */
+export class NotFoundError extends DomainError {
+  readonly code = 'NOT_FOUND';
+  readonly statusCode = 404;
+
+  constructor(
+    public readonly resource: string,
+    public readonly identifier?: string | undefined,
+  ) {
+    super(
+      identifier
+        ? `${resource} with ID '${identifier}' not found`
+        : `${resource} not found`,
+    );
+  }
+}
+
+/**
+ * Error thrown when validation fails.
+ */
+export class ValidationError extends DomainError {
+  readonly code = 'VALIDATION_ERROR';
+  readonly statusCode = 400;
+
+  constructor(
+    message: string,
+    public readonly field?: string | undefined,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * Error thrown when a business rule is violated.
+ */
+export class BusinessRuleError extends DomainError {
+  readonly code = 'BUSINESS_RULE_VIOLATION';
+  readonly statusCode = 400;
+
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
+ * Error thrown when there's insufficient stock for an operation.
+ */
+export class InsufficientStockError extends DomainError {
+  readonly code = 'INSUFFICIENT_STOCK';
+  readonly statusCode = 400;
+
+  constructor(
+    public readonly available: number,
+    public readonly requested: number,
+  ) {
+    super(`Insufficient stock. Available: ${available}, Requested: ${requested}`);
+  }
+}
+
+/**
+ * Error thrown when an operation fails unexpectedly.
+ */
+export class OperationFailedError extends DomainError {
+  readonly code = 'OPERATION_FAILED';
+  readonly statusCode = 500;
+
+  constructor(
+    public readonly operation: string,
+    public readonly reason?: string | undefined,
+  ) {
+    super(reason ? `${operation} failed: ${reason}` : `${operation} failed`);
+  }
+}
+
+// ============================================================================
+// TYPE GUARDS
+// ============================================================================
+
+/**
+ * Type guard to check if an error is a DomainError
+ */
+export function isDomainError(error: unknown): error is DomainError {
+  return error instanceof DomainError;
+}

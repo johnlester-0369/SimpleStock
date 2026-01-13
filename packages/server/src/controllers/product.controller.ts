@@ -2,23 +2,35 @@
  * Product Controller
  *
  * HTTP request handlers for product operations.
- * Handles validation, calls repository, and formats responses.
+ * Delegates business logic to ProductService.
  *
  * @module controllers/product.controller
  */
 
 import type { Request, Response } from 'express';
-import { productRepo } from '@/repos/product.repo.js';
-import { transactionRepo } from '@/repos/transaction.repo.js';
-import {
-  toProductResponse,
-  LOW_STOCK_THRESHOLD,
-  type CreateProductInput,
-  type UpdateProductInput,
-  type SellProductInput,
-  type ProductFilterOptions,
-} from '@/models/product.model.js';
+import { productService } from '@/services/product.service.js';
+import type { CreateProductInput, UpdateProductInput, SellProductInput } from '@/models/product.model.js';
+import { isDomainError } from '@/shared/errors.js';
 import { logger } from '@/utils/logger.util.js';
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Handle domain errors and send appropriate HTTP response
+ */
+function handleError(error: unknown, res: Response, context: string): void {
+  if (isDomainError(error)) {
+    res.status(error.statusCode).json({ error: error.message });
+    return;
+  }
+
+  logger.error(`Error in ${context}`, {
+    error: error instanceof Error ? error.message : String(error),
+  });
+  res.status(500).json({ error: `Failed to ${context.toLowerCase()}` });
+}
 
 // ============================================================================
 // GET HANDLERS
@@ -36,38 +48,25 @@ export const getProducts = async (
     const userId = req.user!.id;
 
     // Parse query parameters
-    const searchParam = req.query.search as string | undefined;
+    const search = req.query.search as string | undefined;
     const stockStatusParam = req.query.stockStatus as string | undefined;
-    const supplierParam = req.query.supplier as string | undefined;
+    const supplier = req.query.supplier as string | undefined;
 
-    // Build filter options
-    const filterOptions: ProductFilterOptions = { userId };
+    // Validate stockStatus if provided
+    const validStatuses = ['all', 'in-stock', 'low-stock', 'out-of-stock'];
+    const stockStatus = stockStatusParam && validStatuses.includes(stockStatusParam)
+      ? (stockStatusParam as 'all' | 'in-stock' | 'low-stock' | 'out-of-stock')
+      : undefined;
 
-    if (searchParam) {
-      filterOptions.search = searchParam;
-    }
-
-    if (
-      stockStatusParam &&
-      ['all', 'in-stock', 'low-stock', 'out-of-stock'].includes(stockStatusParam)
-    ) {
-      filterOptions.stockStatus = stockStatusParam as ProductFilterOptions['stockStatus'];
-    }
-
-    if (supplierParam) {
-      filterOptions.supplier = supplierParam;
-    }
-
-    const products = await productRepo.findMany(filterOptions);
-    const response = products.map(toProductResponse);
-
-    res.json({ products: response });
-  } catch (error) {
-    logger.error('Error fetching products', {
-      error: error instanceof Error ? error.message : String(error),
-      userId: req.user?.id,
+    const products = await productService.getProducts(userId, {
+      search,
+      stockStatus,
+      supplier,
     });
-    res.status(500).json({ error: 'Failed to fetch products' });
+
+    res.json({ products });
+  } catch (error) {
+    handleError(error, res, 'fetch products');
   }
 };
 
@@ -88,21 +87,10 @@ export const getProductById = async (
       return;
     }
 
-    const product = await productRepo.findById(productId, userId);
-
-    if (!product) {
-      res.status(404).json({ error: 'Product not found' });
-      return;
-    }
-
-    res.json(toProductResponse(product));
+    const product = await productService.getProductById(productId, userId);
+    res.json(product);
   } catch (error) {
-    logger.error('Error fetching product', {
-      error: error instanceof Error ? error.message : String(error),
-      productId: req.params.id,
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to fetch product' });
+    handleError(error, res, 'fetch product');
   }
 };
 
@@ -116,15 +104,10 @@ export const getProductStats = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const stats = await productRepo.getStats(userId);
-
+    const stats = await productService.getProductStats(userId);
     res.json(stats);
   } catch (error) {
-    logger.error('Error fetching product stats', {
-      error: error instanceof Error ? error.message : String(error),
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to fetch product statistics' });
+    handleError(error, res, 'fetch product statistics');
   }
 };
 
@@ -141,19 +124,10 @@ export const getLowStockProducts = async (
     const limitParam = req.query.limit as string | undefined;
     const limit = limitParam ? parseInt(limitParam, 10) : 5;
 
-    const products = await productRepo.getLowStock(userId, limit);
-    const response = products.map(toProductResponse);
-
-    res.json({
-      products: response,
-      threshold: LOW_STOCK_THRESHOLD,
-    });
+    const result = await productService.getLowStockProducts(userId, limit);
+    res.json(result);
   } catch (error) {
-    logger.error('Error fetching low stock products', {
-      error: error instanceof Error ? error.message : String(error),
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to fetch low stock products' });
+    handleError(error, res, 'fetch low stock products');
   }
 };
 
@@ -167,15 +141,10 @@ export const getProductSuppliers = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const suppliers = await productRepo.getSuppliers(userId);
-
+    const suppliers = await productService.getProductSuppliers(userId);
     res.json({ suppliers });
   } catch (error) {
-    logger.error('Error fetching product suppliers', {
-      error: error instanceof Error ? error.message : String(error),
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to fetch suppliers' });
+    handleError(error, res, 'fetch suppliers');
   }
 };
 
@@ -195,60 +164,10 @@ export const createProduct = async (
     const userId = req.user!.id;
     const input: CreateProductInput = req.body;
 
-    // Validate name
-    if (!input.name || input.name.trim().length === 0) {
-      res.status(400).json({ error: 'Product name is required' });
-      return;
-    }
-    if (input.name.trim().length < 2) {
-      res.status(400).json({ error: 'Product name must be at least 2 characters' });
-      return;
-    }
-    if (input.name.trim().length > 100) {
-      res.status(400).json({ error: 'Product name must not exceed 100 characters' });
-      return;
-    }
-
-    // Validate price
-    if (input.price === undefined || input.price === null) {
-      res.status(400).json({ error: 'Price is required' });
-      return;
-    }
-    if (typeof input.price !== 'number' || input.price < 0.01) {
-      res.status(400).json({ error: 'Price must be at least $0.01' });
-      return;
-    }
-
-    // Validate stock quantity
-    if (input.stockQuantity === undefined || input.stockQuantity === null) {
-      res.status(400).json({ error: 'Stock quantity is required' });
-      return;
-    }
-    if (typeof input.stockQuantity !== 'number' || input.stockQuantity < 0) {
-      res.status(400).json({ error: 'Stock quantity must be 0 or greater' });
-      return;
-    }
-
-    // Validate supplier
-    if (!input.supplier || input.supplier.trim().length === 0) {
-      res.status(400).json({ error: 'Supplier is required' });
-      return;
-    }
-
-    const product = await productRepo.create(userId, input);
-
-    logger.info('Product created', {
-      productId: product._id.toString(),
-      userId,
-    });
-
-    res.status(201).json(toProductResponse(product));
+    const product = await productService.createProduct(userId, input);
+    res.status(201).json(product);
   } catch (error) {
-    logger.error('Error creating product', {
-      error: error instanceof Error ? error.message : String(error),
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to create product' });
+    handleError(error, res, 'create product');
   }
 };
 
@@ -270,63 +189,10 @@ export const updateProduct = async (
       return;
     }
 
-    // Validate name if being updated
-    if (input.name !== undefined) {
-      if (input.name.trim().length === 0) {
-        res.status(400).json({ error: 'Product name cannot be empty' });
-        return;
-      }
-      if (input.name.trim().length < 2) {
-        res.status(400).json({ error: 'Product name must be at least 2 characters' });
-        return;
-      }
-      if (input.name.trim().length > 100) {
-        res.status(400).json({ error: 'Product name must not exceed 100 characters' });
-        return;
-      }
-    }
-
-    // Validate price if being updated
-    if (input.price !== undefined) {
-      if (typeof input.price !== 'number' || input.price < 0.01) {
-        res.status(400).json({ error: 'Price must be at least $0.01' });
-        return;
-      }
-    }
-
-    // Validate stock quantity if being updated
-    if (input.stockQuantity !== undefined) {
-      if (typeof input.stockQuantity !== 'number' || input.stockQuantity < 0) {
-        res.status(400).json({ error: 'Stock quantity must be 0 or greater' });
-        return;
-      }
-    }
-
-    // Validate supplier if being updated
-    if (input.supplier !== undefined) {
-      if (input.supplier.trim().length === 0) {
-        res.status(400).json({ error: 'Supplier cannot be empty' });
-        return;
-      }
-    }
-
-    const product = await productRepo.update(productId, userId, input);
-
-    if (!product) {
-      res.status(404).json({ error: 'Product not found' });
-      return;
-    }
-
-    logger.info('Product updated', { productId, userId });
-
-    res.json(toProductResponse(product));
+    const product = await productService.updateProduct(productId, userId, input);
+    res.json(product);
   } catch (error) {
-    logger.error('Error updating product', {
-      error: error instanceof Error ? error.message : String(error),
-      productId: req.params.id,
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to update product' });
+    handleError(error, res, 'update product');
   }
 };
 
@@ -348,76 +214,10 @@ export const sellProduct = async (
       return;
     }
 
-    // Validate quantity
-    if (input.quantity === undefined || input.quantity === null) {
-      res.status(400).json({ error: 'Quantity is required' });
-      return;
-    }
-    if (typeof input.quantity !== 'number' || input.quantity < 1) {
-      res.status(400).json({ error: 'Quantity must be at least 1' });
-      return;
-    }
-    if (!Number.isInteger(input.quantity)) {
-      res.status(400).json({ error: 'Quantity must be a whole number' });
-      return;
-    }
-
-    // Check if product exists first
-    const existingProduct = await productRepo.findById(productId, userId);
-    if (!existingProduct) {
-      res.status(404).json({ error: 'Product not found' });
-      return;
-    }
-
-    // Check if enough stock
-    if (existingProduct.stockQuantity < input.quantity) {
-      res.status(400).json({
-        error: `Insufficient stock. Available: ${existingProduct.stockQuantity}`,
-      });
-      return;
-    }
-
-    // Calculate total amount before selling
-    const totalAmount = existingProduct.price * input.quantity;
-
-    // Decrement stock
-    const product = await productRepo.sell(productId, userId, input.quantity);
-
-    if (!product) {
-      res.status(400).json({ error: 'Failed to sell product' });
-      return;
-    }
-
-    // Create transaction record
-    const transaction = await transactionRepo.create(userId, {
-      productId: existingProduct._id.toString(),
-      productName: existingProduct.name,
-      quantity: input.quantity,
-      unitPrice: existingProduct.price,
-      totalAmount,
-    });
-
-    logger.info('Product sold', {
-      productId,
-      userId,
-      quantity: input.quantity,
-      remainingStock: product.stockQuantity,
-      transactionId: transaction._id.toString(),
-    });
-
-    res.json({
-      product: toProductResponse(product),
-      sold: input.quantity,
-      totalAmount,
-      transactionId: transaction._id.toString(),
-    });
+    const result = await productService.sellProduct(productId, userId, input.quantity);
+    res.json(result);
   } catch (error) {
-    logger.error('Error selling product', {
-      error: error instanceof Error ? error.message : String(error),
-      productId: req.params.id,
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to sell product' });
+    handleError(error, res, 'sell product');
   }
 };
 
@@ -438,22 +238,9 @@ export const deleteProduct = async (
       return;
     }
 
-    const deleted = await productRepo.delete(productId, userId);
-
-    if (!deleted) {
-      res.status(404).json({ error: 'Product not found' });
-      return;
-    }
-
-    logger.info('Product deleted', { productId, userId });
-
+    await productService.deleteProduct(productId, userId);
     res.status(204).send();
   } catch (error) {
-    logger.error('Error deleting product', {
-      error: error instanceof Error ? error.message : String(error),
-      productId: req.params.id,
-      userId: req.user?.id,
-    });
-    res.status(500).json({ error: 'Failed to delete product' });
+    handleError(error, res, 'delete product');
   }
 };
