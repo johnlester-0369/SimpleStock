@@ -8,7 +8,6 @@
  * @module services/product.service
  */
 
-import { z } from 'zod';
 import { productRepo } from '@/repos/product.repo.js';
 import { transactionRepo } from '@/repos/transaction.repo.js';
 import {
