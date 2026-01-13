@@ -13,8 +13,8 @@ import {
   validateForm,
   passwordChangeSchema,
   isEmpty,
-  type PasswordChangeFormData as ZodPasswordChangeFormData,
-} from '@/utils/validation.util'
+  type PasswordChangeFormData,
+} from '@/validators'
 
 /**
  * Password form state interface
@@ -93,7 +93,7 @@ const AccountPage: React.FC = () => {
    * Start editing profile - reset to current user name
    */
   const handleStartEditing = () => {
-    setProfileName(user?.name || '')
+    setProfileName(user?.name ?? '')
     setProfileNameError('')
     setProfileError('')
     setIsProfileEditing(true)
@@ -103,7 +103,7 @@ const AccountPage: React.FC = () => {
    * Cancel profile editing - reset form
    */
   const handleCancelProfileEdit = () => {
-    setProfileName(user?.name || '')
+    setProfileName(user?.name ?? '')
     setIsProfileEditing(false)
     setProfileNameError('')
     setProfileError('')
@@ -133,7 +133,7 @@ const AccountPage: React.FC = () => {
       })
 
       if (result.error) {
-        throw new Error(result.error.message || 'Failed to update profile')
+        throw new Error(result.error.message ?? 'Failed to update profile')
       }
 
       // Refresh session to get updated user data
@@ -167,7 +167,7 @@ const AccountPage: React.FC = () => {
    * Handle password change with Zod validation and API call
    */
   const handleChangePassword = async () => {
-    // Validate using Zod schema
+    // Validate using Zod schema from validators module
     const validation = validateForm(passwordChangeSchema, {
       currentPassword: passwordForm.currentPassword,
       newPassword: passwordForm.newPassword,
@@ -175,11 +175,11 @@ const AccountPage: React.FC = () => {
     })
 
     if (!validation.success) {
-      setPasswordFormError(validation.error || 'Validation failed')
+      setPasswordFormError(validation.error ?? 'Validation failed')
       return
     }
 
-    const validatedData = validation.data as ZodPasswordChangeFormData
+    const validatedData = validation.data as PasswordChangeFormData
 
     setPasswordLoading(true)
     setPasswordFormError('')
@@ -192,7 +192,7 @@ const AccountPage: React.FC = () => {
       })
 
       if (result.error) {
-        throw new Error(result.error.message || 'Failed to change password')
+        throw new Error(result.error.message ?? 'Failed to change password')
       }
 
       setIsChangePasswordOpen(false)

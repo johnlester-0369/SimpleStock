@@ -2,7 +2,7 @@
  * useSupplierMutations Hook
  *
  * Custom hook for supplier mutations (create, update, delete).
- * Handles validation and API calls.
+ * Uses Zod validators for input validation.
  *
  * @module hooks/useSupplierMutations
  */
@@ -14,6 +14,11 @@ import {
   type CreateSupplierData,
   type UpdateSupplierData,
 } from '@/services/supplier.service'
+import {
+  validateCreateSupplier,
+  validateUpdateSupplier,
+  sanitize,
+} from '@/validators'
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -33,34 +38,11 @@ interface UseSupplierMutationsOptions {
 interface UseSupplierMutationsReturn {
   isSubmitting: boolean
   createSupplier: (input: CreateSupplierData) => Promise<Supplier | null>
-  updateSupplier: (id: string, input: UpdateSupplierData) => Promise<Supplier | null>
+  updateSupplier: (
+    id: string,
+    input: UpdateSupplierData,
+  ) => Promise<Supplier | null>
   deleteSupplier: (id: string) => Promise<boolean>
-}
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Sanitize string input
- */
-function sanitize(value: string): string {
-  return value.trim()
-}
-
-/**
- * Check if value is empty
- */
-function isEmpty(value: string | undefined | null): boolean {
-  return !value || value.trim().length === 0
-}
-
-/**
- * Validate email format
- */
-function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
 }
 
 // ============================================================================
@@ -68,13 +50,21 @@ function isValidEmail(email: string): boolean {
 // ============================================================================
 
 /**
- * Custom hook to handle supplier mutations
+ * Custom hook to handle supplier mutations with Zod validation.
  *
  * @example
  * ```tsx
  * const { createSupplier, updateSupplier, deleteSupplier, isSubmitting } = useSupplierMutations({
  *   onSuccess: (message) => showToast(message),
  *   onError: (message) => showError(message)
+ * })
+ *
+ * // Create with validation
+ * const supplier = await createSupplier({
+ *   name: 'TechCorp',
+ *   contactPerson: 'John Doe',
+ *   email: 'john@techcorp.com',
+ *   phone: '+1-555-0123'
  * })
  * ```
  */
@@ -85,51 +75,21 @@ export function useSupplierMutations(
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   /**
-   * Create a new supplier
+   * Create a new supplier with Zod validation.
    */
   const createSupplier = useCallback(
     async (input: CreateSupplierData): Promise<Supplier | null> => {
-      // Validate name
-      if (isEmpty(input.name)) {
-        onError?.('Supplier name is required')
-        return null
-      }
-      if (sanitize(input.name).length < 2) {
-        onError?.('Supplier name must be at least 2 characters')
-        return null
-      }
-      if (sanitize(input.name).length > 100) {
-        onError?.('Supplier name must not exceed 100 characters')
-        return null
-      }
+      // Validate using Zod schema
+      const validation = validateCreateSupplier({
+        name: input.name,
+        contactPerson: input.contactPerson,
+        email: input.email,
+        phone: input.phone,
+        address: input.address ?? '',
+      })
 
-      // Validate contact person
-      if (isEmpty(input.contactPerson)) {
-        onError?.('Contact person is required')
-        return null
-      }
-      if (sanitize(input.contactPerson).length < 2) {
-        onError?.('Contact person must be at least 2 characters')
-        return null
-      }
-      if (sanitize(input.contactPerson).length > 100) {
-        onError?.('Contact person must not exceed 100 characters')
-        return null
-      }
-
-      // Validate email
-      if (isEmpty(input.email)) {
-        onError?.('Email is required')
-        return null
-      }
-      if (!isValidEmail(sanitize(input.email))) {
-        onError?.('Invalid email format')
-        return null
-      }
-
-      // Validate phone
-      if (isEmpty(input.phone)) {
-        onError?.('Phone is required')
+      if (!validation.success) {
+        onError?.(validation.error ?? 'Validation failed')
         return null
       }
 
@@ -149,7 +109,7 @@ export function useSupplierMutations(
         console.error('Error creating supplier:', err)
         const errorMessage =
           (err as { response?: { data?: { error?: string } } })?.response?.data
-            ?.error || 'Failed to create supplier. Please try again.'
+            ?.error ?? 'Failed to create supplier. Please try again.'
         onError?.(errorMessage)
         return null
       } finally {
@@ -160,57 +120,21 @@ export function useSupplierMutations(
   )
 
   /**
-   * Update an existing supplier
+   * Update an existing supplier with Zod validation.
    */
   const updateSupplier = useCallback(
     async (id: string, input: UpdateSupplierData): Promise<Supplier | null> => {
-      // Validate name if provided
-      if (input.name !== undefined) {
-        if (isEmpty(input.name)) {
-          onError?.('Supplier name cannot be empty')
-          return null
-        }
-        if (sanitize(input.name).length < 2) {
-          onError?.('Supplier name must be at least 2 characters')
-          return null
-        }
-        if (sanitize(input.name).length > 100) {
-          onError?.('Supplier name must not exceed 100 characters')
-          return null
-        }
-      }
+      // Validate using Zod schema
+      const validation = validateUpdateSupplier({
+        name: input.name,
+        contactPerson: input.contactPerson,
+        email: input.email,
+        phone: input.phone,
+        address: input.address,
+      })
 
-      // Validate contact person if provided
-      if (input.contactPerson !== undefined) {
-        if (isEmpty(input.contactPerson)) {
-          onError?.('Contact person cannot be empty')
-          return null
-        }
-        if (sanitize(input.contactPerson).length < 2) {
-          onError?.('Contact person must be at least 2 characters')
-          return null
-        }
-        if (sanitize(input.contactPerson).length > 100) {
-          onError?.('Contact person must not exceed 100 characters')
-          return null
-        }
-      }
-
-      // Validate email if provided
-      if (input.email !== undefined) {
-        if (isEmpty(input.email)) {
-          onError?.('Email cannot be empty')
-          return null
-        }
-        if (!isValidEmail(sanitize(input.email))) {
-          onError?.('Invalid email format')
-          return null
-        }
-      }
-
-      // Validate phone if provided
-      if (input.phone !== undefined && isEmpty(input.phone)) {
-        onError?.('Phone cannot be empty')
+      if (!validation.success) {
+        onError?.(validation.error ?? 'Validation failed')
         return null
       }
 
@@ -235,7 +159,7 @@ export function useSupplierMutations(
         console.error('Error updating supplier:', err)
         const errorMessage =
           (err as { response?: { data?: { error?: string } } })?.response?.data
-            ?.error || 'Failed to update supplier. Please try again.'
+            ?.error ?? 'Failed to update supplier. Please try again.'
         onError?.(errorMessage)
         return null
       } finally {
@@ -246,7 +170,7 @@ export function useSupplierMutations(
   )
 
   /**
-   * Delete a supplier
+   * Delete a supplier.
    */
   const deleteSupplier = useCallback(
     async (id: string): Promise<boolean> => {
@@ -259,7 +183,7 @@ export function useSupplierMutations(
         console.error('Error deleting supplier:', err)
         const errorMessage =
           (err as { response?: { data?: { error?: string } } })?.response?.data
-            ?.error || 'Failed to delete supplier. Please try again.'
+            ?.error ?? 'Failed to delete supplier. Please try again.'
         onError?.(errorMessage)
         return false
       } finally {

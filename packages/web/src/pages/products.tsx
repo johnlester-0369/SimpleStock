@@ -222,7 +222,7 @@ const ProductsPage: React.FC = () => {
   }
 
   /**
-   * Handle adding a new product
+   * Handle adding a new product - validation delegated to hook
    */
   const handleAddProduct = async () => {
     const price = parseFloat(formData.price)
@@ -263,7 +263,7 @@ const ProductsPage: React.FC = () => {
   }
 
   /**
-   * Handle editing an existing product
+   * Handle editing an existing product - validation delegated to hook
    */
   const handleEditProduct = async () => {
     if (!selectedProduct) return
@@ -324,23 +324,23 @@ const ProductsPage: React.FC = () => {
   }
 
   /**
-   * Handle selling a product (reducing stock)
+   * Handle selling a product (reducing stock) - validation delegated to hook
    */
   const handleSellProduct = async () => {
     if (!selectedProduct) return
 
     const quantity = parseInt(sellQuantity, 10)
-    if (isNaN(quantity) || quantity < 1) {
+    if (isNaN(quantity)) {
       setFormError('Please enter a valid quantity')
       return
     }
 
-    if (quantity > selectedProduct.stockQuantity) {
-      setFormError(`Insufficient stock. Available: ${selectedProduct.stockQuantity}`)
-      return
-    }
-
-    const result = await sellProduct(selectedProduct.id, quantity)
+    // Pass available stock to hook for validation
+    const result = await sellProduct(
+      selectedProduct.id,
+      quantity,
+      selectedProduct.stockQuantity,
+    )
 
     if (result) {
       setIsSellDialogOpen(false)
@@ -434,7 +434,10 @@ const ProductsPage: React.FC = () => {
   }
 
   // Show loading spinner during initial load (products or suppliers)
-  if ((loading && products.length === 0) || (suppliersLoading && supplierList.length === 0)) {
+  if (
+    (loading && products.length === 0) ||
+    (suppliersLoading && supplierList.length === 0)
+  ) {
     return <LoadingSpinner />
   }
 
@@ -595,11 +598,7 @@ const ProductsPage: React.FC = () => {
 
         {/* Fetch Error */}
         {fetchError && (
-          <Alert
-            variant="error"
-            title={fetchError}
-            onClose={() => {}}
-          />
+          <Alert variant="error" title={fetchError} onClose={() => {}} />
         )}
 
         {/* Search and Filter Bar */}
@@ -672,9 +671,7 @@ const ProductsPage: React.FC = () => {
                 </span>
               )}
               {stats.totalValue > 0 && (
-                <span>
-                  Total value: {formatPrice(stats.totalValue)}
-                </span>
+                <span>Total value: {formatPrice(stats.totalValue)}</span>
               )}
             </div>
           </div>

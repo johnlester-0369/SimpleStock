@@ -8,7 +8,7 @@ import Alert from '@/components/ui/Alert'
 import PageHead from '@/components/common/PageHead'
 import { BrandLogo, BrandName } from '@/components/common/Brand'
 import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react'
-import { isValidEmail, isEmpty } from '@/utils/validation.util'
+import { isValidEmail, isEmpty } from '@/validators'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { ROUTE_DASHBOARD } from '@/constants/routes.constants'
 
@@ -49,7 +49,7 @@ const UserLogin: React.FC = () => {
 
   // Get the page they were trying to access (defaults to dashboard)
   const state = location.state as LocationState | null
-  const from = state?.from?.pathname || ROUTE_DASHBOARD
+  const from = state?.from?.pathname ?? ROUTE_DASHBOARD
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -59,7 +59,7 @@ const UserLogin: React.FC = () => {
   }, [isAuthenticated, isLoading, navigate, from])
 
   /**
-   * Validates email field
+   * Validates email field using validators module
    * @param value - Email value to validate
    * @returns True if valid, false otherwise
    */
@@ -77,7 +77,7 @@ const UserLogin: React.FC = () => {
   }
 
   /**
-   * Validates password field
+   * Validates password field using validators module
    * @param value - Password value to validate
    * @returns True if valid, false otherwise
    */
