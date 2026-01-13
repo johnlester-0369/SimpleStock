@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Package,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { BrandLogo, BrandName } from '@/components/common/Brand'
 import CloseButton from '@/components/ui/CloseButton'
+import { useUserAuth } from '@/contexts/UserAuthContext'
 import { cn } from '@/utils/cn.util'
 
 interface SidebarProps {
@@ -73,26 +74,39 @@ const navItems: NavItem[] = [
   },
 ]
 
+/**
+ * Sidebar Component
+ *
+ * Navigation sidebar with collapsible menu items and logout functionality.
+ * Integrates with UserAuthContext for authentication actions.
+ *
+ * @param isOpen - Whether the sidebar is open (mobile)
+ * @param onClose - Callback to close the sidebar
+ */
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation()
-  
+  const navigate = useNavigate()
+  const { logout } = useUserAuth()
+
+  // Logout loading state
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
   // Track which parent items are expanded
   // Settings is always expanded by default
   const [expandedItems, setExpandedItems] = useState<string[]>(() => {
     // Always include Settings in the default expanded items
     const defaultExpanded = ['/settings']
-    
+
     // Also auto-expand any other parent if its child is active on initial load
-    const activeParent = navItems.find(
-      (item) =>
-        item.children?.some((child) => location.pathname.startsWith(child.path))
+    const activeParent = navItems.find((item) =>
+      item.children?.some((child) => location.pathname.startsWith(child.path))
     )
-    
+
     // Add active parent if it's not already in the default expanded list
     if (activeParent && !defaultExpanded.includes(activeParent.path)) {
       defaultExpanded.push(activeParent.path)
     }
-    
+
     return defaultExpanded
   })
 
@@ -101,9 +115,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
    */
   const toggleExpand = (path: string) => {
     setExpandedItems((prev) =>
-      prev.includes(path)
-        ? prev.filter((p) => p !== path)
-        : [...prev, path]
+      prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]
     )
   }
 
@@ -118,6 +130,29 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const hasActiveChild = (children: NavChildItem[] | undefined) => {
     if (!children) return false
     return children.some((child) => location.pathname.startsWith(child.path))
+  }
+
+  /**
+   * Handle logout action
+   * Calls logout from auth context and redirects to login page
+   */
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+
+    try {
+      await logout()
+      // Close sidebar before navigation
+      onClose()
+      // Navigate to login page
+      navigate('/', { replace: true })
+    } catch (error) {
+      console.error('Logout failed:', error)
+      // Even if logout fails, attempt to redirect
+      onClose()
+      navigate('/', { replace: true })
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
 
   /**
@@ -226,7 +261,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         className={cn(
           'fixed top-0 left-0 z-50 h-full w-64 bg-surface-2 flex flex-col transition-transform duration-300 ease-in-out',
           'lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:z-auto',
-          isOpen ? 'translate-x-0' : '-translate-x-full',
+          isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         {/* Brand Section */}
@@ -246,22 +281,23 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar">
-          <ul className="space-y-1">
-            {navItems.map(renderNavItem)}
-          </ul>
+          <ul className="space-y-1">{navItems.map(renderNavItem)}</ul>
         </nav>
 
         {/* Footer / Logout */}
         <div className="p-3 border-t border-border flex-shrink-0">
           <button
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-text hover:bg-surface-hover-2 hover:text-headline transition-colors"
-            onClick={() => {
-              // Handle logout logic here
-              console.log('Logout clicked')
-            }}
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className={cn(
+              'flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+              'text-text hover:bg-surface-hover-2 hover:text-headline',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
+            )}
+            aria-label="Log out"
           >
             <LogOut className="h-5 w-5" />
-            <span>Log Out</span>
+            <span>{isLoggingOut ? 'Signing out...' : 'Log Out'}</span>
           </button>
         </div>
       </aside>
