@@ -10,6 +10,7 @@ import { BrandLogo, BrandName } from '@/components/common/Brand'
 import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react'
 import { isValidEmail, isEmpty } from '@/utils/validation.util'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { ROUTE_DASHBOARD } from '@/constants/routes.constants'
 
 /**
  * Location state interface for redirect handling
@@ -48,7 +49,7 @@ const UserLogin: React.FC = () => {
 
   // Get the page they were trying to access (defaults to dashboard)
   const state = location.state as LocationState | null
-  const from = state?.from?.pathname || '/dashboard'
+  const from = state?.from?.pathname || ROUTE_DASHBOARD
 
   // Redirect if already authenticated
   useEffect(() => {

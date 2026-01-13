@@ -38,6 +38,15 @@ import { useTransactions } from '@/hooks/useTransactions'
 import type { Product } from '@/services/product.service'
 import type { Transaction } from '@/services/transaction.service'
 
+// Import route constants
+import {
+  ROUTE_PRODUCTS,
+  ROUTE_TRANSACTION,
+  ROUTE_REPORT,
+  ROUTE_SETTINGS_SUPPLIER,
+  ROUTE_PRODUCTS_LOW_STOCK,
+} from '@/constants/routes.constants'
+
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
@@ -247,7 +256,7 @@ const DashboardPage: React.FC = () => {
           callbacks: {
             label: (context) => {
               const value = context.parsed.y ?? 0
-              return `$${value.toFixed(2)}`
+              return `${value.toFixed(2)}`
             },
           },
         },
@@ -274,7 +283,7 @@ const DashboardPage: React.FC = () => {
             font: {
               size: 12,
             },
-            callback: (value) => `$${value}`,
+            callback: (value) => `${value}`,
           },
         },
       },
@@ -464,7 +473,7 @@ const DashboardPage: React.FC = () => {
                   <BarChart3 className="h-5 w-5 text-muted" />
                   Weekly Sales Overview
                 </Card.Title>
-                <Link to="/report">
+                <Link to={ROUTE_REPORT}>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -530,7 +539,7 @@ const DashboardPage: React.FC = () => {
 
                 {/* Quick Actions */}
                 <div className="pt-2">
-                  <Link to="/products">
+                  <Link to={ROUTE_PRODUCTS}>
                     <Button
                       variant="secondary"
                       size="md"
@@ -556,7 +565,7 @@ const DashboardPage: React.FC = () => {
                   <AlertTriangle className="h-5 w-5 text-warning" />
                   Low Stock Alerts
                 </Card.Title>
-                <Link to="/products?filter=low-stock">
+                <Link to={ROUTE_PRODUCTS_LOW_STOCK}>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -641,7 +650,7 @@ const DashboardPage: React.FC = () => {
                   <ShoppingCart className="h-5 w-5 text-muted" />
                   Recent Transactions
                 </Card.Title>
-                <Link to="/transaction">
+                <Link to={ROUTE_TRANSACTION}>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -710,7 +719,7 @@ const DashboardPage: React.FC = () => {
           </Card.Header>
           <Card.Body>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Link to="/products" className="block">
+              <Link to={ROUTE_PRODUCTS} className="block">
                 <div className="p-4 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-colors cursor-pointer group">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
@@ -724,7 +733,7 @@ const DashboardPage: React.FC = () => {
                 </div>
               </Link>
 
-              <Link to="/transaction" className="block">
+              <Link to={ROUTE_TRANSACTION} className="block">
                 <div className="p-4 rounded-lg border border-border hover:border-success hover:bg-success/5 transition-colors cursor-pointer group">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-success/10 flex items-center justify-center group-hover:bg-success/20 transition-colors">
@@ -738,7 +747,7 @@ const DashboardPage: React.FC = () => {
                 </div>
               </Link>
 
-              <Link to="/report" className="block">
+              <Link to={ROUTE_REPORT} className="block">
                 <div className="p-4 rounded-lg border border-border hover:border-info hover:bg-info/5 transition-colors cursor-pointer group">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-info/10 flex items-center justify-center group-hover:bg-info/20 transition-colors">
@@ -752,7 +761,7 @@ const DashboardPage: React.FC = () => {
                 </div>
               </Link>
 
-              <Link to="/settings/supplier" className="block">
+              <Link to={ROUTE_SETTINGS_SUPPLIER} className="block">
                 <div className="p-4 rounded-lg border border-border hover:border-warning hover:bg-warning/5 transition-colors cursor-pointer group">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center group-hover:bg-warning/20 transition-colors">

@@ -15,6 +15,16 @@ import { BrandLogo, BrandName } from '@/components/common/Brand'
 import CloseButton from '@/components/ui/CloseButton'
 import { useUserAuth } from '@/contexts/UserAuthContext'
 import { cn } from '@/utils/cn.util'
+import {
+  ROUTE_ROOT,
+  ROUTE_DASHBOARD,
+  ROUTE_PRODUCTS,
+  ROUTE_TRANSACTION,
+  ROUTE_REPORT,
+  ROUTE_SETTINGS,
+  ROUTE_SETTINGS_ACCOUNT,
+  ROUTE_SETTINGS_SUPPLIER,
+} from '@/constants/routes.constants'
 
 interface SidebarProps {
   isOpen: boolean
@@ -37,37 +47,37 @@ interface NavChildItem {
 const navItems: NavItem[] = [
   {
     label: 'Dashboard',
-    path: '/dashboard',
+    path: ROUTE_DASHBOARD,
     icon: <LayoutDashboard className="h-5 w-5" />,
   },
   {
     label: 'Products',
-    path: '/products',
+    path: ROUTE_PRODUCTS,
     icon: <Package className="h-5 w-5" />,
   },
   {
     label: 'Transaction',
-    path: '/transaction',
+    path: ROUTE_TRANSACTION,
     icon: <ArrowLeftRight className="h-5 w-5" />,
   },
   {
     label: 'Report',
-    path: '/report',
+    path: ROUTE_REPORT,
     icon: <FileBarChart className="h-5 w-5" />,
   },
   {
     label: 'Settings',
-    path: '/settings',
+    path: ROUTE_SETTINGS,
     icon: <Settings className="h-5 w-5" />,
     children: [
       {
         label: 'Account',
-        path: '/settings/account',
+        path: ROUTE_SETTINGS_ACCOUNT,
         icon: <UserCircle className="h-4 w-4" />,
       },
       {
         label: 'Supplier',
-        path: '/settings/supplier',
+        path: ROUTE_SETTINGS_SUPPLIER,
         icon: <Truck className="h-4 w-4" />,
       },
     ],
@@ -95,7 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   // Settings is always expanded by default
   const [expandedItems, setExpandedItems] = useState<string[]>(() => {
     // Always include Settings in the default expanded items
-    const defaultExpanded = ['/settings']
+    const defaultExpanded = [ROUTE_SETTINGS]
 
     // Also auto-expand any other parent if its child is active on initial load
     const activeParent = navItems.find((item) =>
@@ -144,12 +154,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       // Close sidebar before navigation
       onClose()
       // Navigate to login page
-      navigate('/', { replace: true })
+      navigate(ROUTE_ROOT, { replace: true })
     } catch (error) {
       console.error('Logout failed:', error)
       // Even if logout fails, attempt to redirect
       onClose()
-      navigate('/', { replace: true })
+      navigate(ROUTE_ROOT, { replace: true })
     } finally {
       setIsLoggingOut(false)
     }
@@ -227,7 +237,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       <li key={item.path}>
         <NavLink
           to={item.path}
-          end={item.path === '/dashboard'}
+          end={item.path === ROUTE_DASHBOARD}
           onClick={onClose}
           className={({ isActive }) =>
             cn(

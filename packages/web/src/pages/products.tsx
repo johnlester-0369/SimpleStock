@@ -29,6 +29,9 @@ import { useProductMutations } from '@/hooks/useProductMutations'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import type { Product } from '@/services/product.service'
 
+// Import route constants
+import { ROUTE_SETTINGS_SUPPLIER } from '@/constants/routes.constants'
+
 /**
  * Form data interface for add/edit operations (string values for form inputs)
  */
@@ -427,7 +430,7 @@ const ProductsPage: React.FC = () => {
    * Navigate to supplier management page
    */
   const handleNavigateToSuppliers = () => {
-    navigate('/settings/supplier')
+    navigate(ROUTE_SETTINGS_SUPPLIER)
   }
 
   // Show loading spinner during initial load (products or suppliers)

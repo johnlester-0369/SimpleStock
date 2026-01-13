@@ -2,6 +2,7 @@ import React from 'react'
 import { Navigate, useLocation, Outlet } from 'react-router-dom'
 import { useUserAuth } from '@/contexts/UserAuthContext'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { ROUTE_ROOT } from '@/constants/routes.constants'
 
 /**
  * UserProtectedRoute guard component
@@ -20,7 +21,7 @@ const UserProtectedRoute: React.FC = () => {
 
   // If not authenticated, redirect to login page (/)
   if (!isAuthenticated) {
-    return <Navigate to="/" state={{ from: location }} replace />
+    return <Navigate to={ROUTE_ROOT} state={{ from: location }} replace />
   }
 
   // If authenticated, render the protected route

@@ -4,6 +4,15 @@ import { Menu, Settings, LogOut, ChevronDown } from 'lucide-react'
 import { useUserAuth } from '@/contexts/UserAuthContext'
 import IconButton from '@/components/ui/IconButton'
 import { cn } from '@/utils/cn.util'
+import {
+  ROUTE_ROOT,
+  ROUTE_DASHBOARD,
+  ROUTE_PRODUCTS,
+  ROUTE_TRANSACTION,
+  ROUTE_REPORT,
+  ROUTE_SETTINGS_ACCOUNT,
+  ROUTE_SETTINGS_SUPPLIER,
+} from '@/constants/routes.constants'
 
 interface NavbarProps {
   onMenuClick: () => void
@@ -14,12 +23,12 @@ interface NavbarProps {
  * Maps URL paths to their corresponding page titles
  */
 const routeTitles: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/products': 'Products',
-  '/transaction': 'Transaction',
-  '/report': 'Report',
-  '/settings/account': 'Account Settings',
-  '/settings/supplier': 'Supplier Management',
+  [ROUTE_DASHBOARD]: 'Dashboard',
+  [ROUTE_PRODUCTS]: 'Products',
+  [ROUTE_TRANSACTION]: 'Transaction',
+  [ROUTE_REPORT]: 'Report',
+  [ROUTE_SETTINGS_ACCOUNT]: 'Account Settings',
+  [ROUTE_SETTINGS_SUPPLIER]: 'Supplier Management',
 }
 
 /**
@@ -106,7 +115,7 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
    */
   const handleNavigateToAccount = () => {
     setIsUserMenuOpen(false)
-    navigate('/settings/account')
+    navigate(ROUTE_SETTINGS_ACCOUNT)
   }
 
   /**
@@ -121,11 +130,11 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
       await logout()
       // Navigation to login page is handled by the auth context/guards
       // But we can also explicitly navigate as a fallback
-      navigate('/', { replace: true })
+      navigate(ROUTE_ROOT, { replace: true })
     } catch (error) {
       console.error('Logout failed:', error)
       // Even if logout fails, attempt to redirect
-      navigate('/', { replace: true })
+      navigate(ROUTE_ROOT, { replace: true })
     } finally {
       setIsLoggingOut(false)
     }

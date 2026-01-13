@@ -2,6 +2,7 @@ import React from 'react'
 import { Navigate, useLocation, Outlet } from 'react-router-dom'
 import { useUserAuth } from '@/contexts/UserAuthContext'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { ROUTE_DASHBOARD } from '@/constants/routes.constants'
 
 /**
  * PublicRoute guard component
@@ -21,7 +22,7 @@ const PublicRoute: React.FC = () => {
 
   // If authenticated, redirect to dashboard page
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" state={{ from: location }} replace />
+    return <Navigate to={ROUTE_DASHBOARD} state={{ from: location }} replace />
   }
 
   // If not authenticated, render the public route

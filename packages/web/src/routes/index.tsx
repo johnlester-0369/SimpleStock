@@ -12,9 +12,20 @@ import SupplierPage from '@/pages/settings/supplier'
 import PublicRoute from '@/guards/PublicRoute'
 import UserProtectedRoute from '@/guards/UserProtectedRoute'
 
+// route constants
+import {
+  ROUTE_ROOT,
+  ROUTE_DASHBOARD,
+  ROUTE_PRODUCTS,
+  ROUTE_TRANSACTION,
+  ROUTE_REPORT,
+  ROUTE_SETTINGS_ACCOUNT,
+  ROUTE_SETTINGS_SUPPLIER,
+} from '@/constants/routes.constants'
+
 export const router = createBrowserRouter([
   {
-    path: '/',
+    path: ROUTE_ROOT,
     element: <PublicRoute />,
     children: [
       {
@@ -24,7 +35,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: '/dashboard',
+    path: ROUTE_DASHBOARD,
     element: <UserProtectedRoute />,
     children: [
       {
@@ -40,7 +51,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: '/products',
+    path: ROUTE_PRODUCTS,
     element: <UserProtectedRoute />,
     children: [
       {
@@ -56,7 +67,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: '/transaction',
+    path: ROUTE_TRANSACTION,
     element: <UserProtectedRoute />,
     children: [
       {
@@ -72,7 +83,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: '/report',
+    path: ROUTE_REPORT,
     element: <UserProtectedRoute />,
     children: [
       {
@@ -88,7 +99,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: '/settings/account',
+    path: ROUTE_SETTINGS_ACCOUNT,
     element: <UserProtectedRoute />,
     children: [
       {
@@ -104,7 +115,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: '/settings/supplier',
+    path: ROUTE_SETTINGS_SUPPLIER,
     element: <UserProtectedRoute />,
     children: [
       {
