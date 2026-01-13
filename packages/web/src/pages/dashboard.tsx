@@ -15,6 +15,8 @@ import PageHead from '@/components/common/PageHead'
 import Card from '@/components/ui/Card'
 import Table from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
+import Alert from '@/components/ui/Alert'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { cn } from '@/utils/cn.util'
 import {
   Package,
@@ -28,220 +30,16 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
+// Import hooks for dynamic data
+import { useProducts } from '@/hooks/useProducts'
+import { useTransactions } from '@/hooks/useTransactions'
+
+// Import types
+import type { Product } from '@/services/product.service'
+import type { Transaction } from '@/services/transaction.service'
+
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
-
-/**
- * Product interface for inventory data
- */
-interface Product {
-  id: string
-  name: string
-  price: number
-  stockQuantity: number
-  supplier: string
-}
-
-/**
- * Sale interface for transaction data
- */
-interface Sale {
-  id: string
-  productName: string
-  quantity: number
-  unitPrice: number
-  totalAmount: number
-  date: Date
-}
-
-/**
- * Generate a date relative to today
- * @param daysAgo - Number of days before today (0 = today)
- * @param hour - Hour of the day (0-23)
- * @param minute - Minute (0-59)
- * @returns Date object set to the specified relative time
- */
-const getRelativeDate = (
-  daysAgo: number,
-  hour: number,
-  minute: number,
-): Date => {
-  const date = new Date()
-  date.setDate(date.getDate() - daysAgo)
-  date.setHours(hour, minute, 0, 0)
-  return date
-}
-
-/**
- * Mock product inventory data
- * Matches products from products.tsx for consistency
- */
-const PRODUCTS_DATA: Product[] = [
-  {
-    id: '1',
-    name: 'Wireless Mouse',
-    price: 29.99,
-    stockQuantity: 45,
-    supplier: 'TechCorp',
-  },
-  {
-    id: '2',
-    name: 'USB-C Cable',
-    price: 12.99,
-    stockQuantity: 3,
-    supplier: 'CableMax',
-  },
-  {
-    id: '3',
-    name: 'Mechanical Keyboard',
-    price: 89.99,
-    stockQuantity: 12,
-    supplier: 'TechCorp',
-  },
-  {
-    id: '4',
-    name: 'Monitor Stand',
-    price: 49.99,
-    stockQuantity: 2,
-    supplier: 'OfficeGear',
-  },
-  {
-    id: '5',
-    name: 'Webcam HD',
-    price: 59.99,
-    stockQuantity: 28,
-    supplier: 'TechCorp',
-  },
-  {
-    id: '6',
-    name: 'USB Hub 7-Port',
-    price: 24.99,
-    stockQuantity: 4,
-    supplier: 'CableMax',
-  },
-  {
-    id: '7',
-    name: 'Laptop Stand Aluminum',
-    price: 39.99,
-    stockQuantity: 15,
-    supplier: 'OfficeGear',
-  },
-  {
-    id: '8',
-    name: 'LED Desk Lamp',
-    price: 34.99,
-    stockQuantity: 8,
-    supplier: 'LightWorks',
-  },
-  {
-    id: '9',
-    name: 'Mousepad XL Gaming',
-    price: 19.99,
-    stockQuantity: 52,
-    supplier: 'GamerZone',
-  },
-  {
-    id: '10',
-    name: 'Headphone Stand Wood',
-    price: 22.99,
-    stockQuantity: 1,
-    supplier: 'OfficeGear',
-  },
-  {
-    id: '11',
-    name: 'Wireless Charger Pad',
-    price: 35.99,
-    stockQuantity: 33,
-    supplier: 'TechCorp',
-  },
-  {
-    id: '12',
-    name: 'Cable Management Kit',
-    price: 15.99,
-    stockQuantity: 0,
-    supplier: 'CableMax',
-  },
-  {
-    id: '13',
-    name: 'Ergonomic Chair Mat',
-    price: 45.99,
-    stockQuantity: 7,
-    supplier: 'OfficeGear',
-  },
-  {
-    id: '14',
-    name: 'Bluetooth Speaker Mini',
-    price: 55.99,
-    stockQuantity: 19,
-    supplier: 'SoundMax',
-  },
-  {
-    id: '15',
-    name: 'Screen Cleaner Kit',
-    price: 8.99,
-    stockQuantity: 64,
-    supplier: 'CleanTech',
-  },
-]
-
-/**
- * Mock recent sales data with relative dates
- */
-const RECENT_SALES: Sale[] = [
-  {
-    id: 'sale-001',
-    productName: 'Wireless Mouse',
-    quantity: 2,
-    unitPrice: 29.99,
-    totalAmount: 59.98,
-    date: getRelativeDate(0, 10, 30),
-  },
-  {
-    id: 'sale-002',
-    productName: 'USB-C Cable',
-    quantity: 5,
-    unitPrice: 12.99,
-    totalAmount: 64.95,
-    date: getRelativeDate(0, 14, 45),
-  },
-  {
-    id: 'sale-003',
-    productName: 'Mechanical Keyboard',
-    quantity: 1,
-    unitPrice: 89.99,
-    totalAmount: 89.99,
-    date: getRelativeDate(1, 9, 20),
-  },
-  {
-    id: 'sale-004',
-    productName: 'Monitor Stand',
-    quantity: 3,
-    unitPrice: 49.99,
-    totalAmount: 149.97,
-    date: getRelativeDate(1, 15, 15),
-  },
-  {
-    id: 'sale-005',
-    productName: 'Webcam HD',
-    quantity: 2,
-    unitPrice: 59.99,
-    totalAmount: 119.98,
-    date: getRelativeDate(2, 11, 30),
-  },
-]
-
-/**
- * Weekly sales data for chart (last 7 days)
- */
-const WEEKLY_SALES_DATA = [
-  { day: 'Mon', amount: 342.5 },
-  { day: 'Tue', amount: 489.25 },
-  { day: 'Wed', amount: 275.8 },
-  { day: 'Thu', amount: 612.0 },
-  { day: 'Fri', amount: 528.45 },
-  { day: 'Sat', amount: 395.6 },
-  { day: 'Sun', amount: 184.87 },
-]
 
 /** Stock quantity threshold for low stock warning */
 const LOW_STOCK_THRESHOLD = 5
@@ -252,89 +50,169 @@ const RECENT_TRANSACTIONS_LIMIT = 5
 /** Number of low stock items to display */
 const LOW_STOCK_DISPLAY_LIMIT = 5
 
+/** Days of week for chart labels */
+const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+/**
+ * Get the start of the week (Sunday) for a given date
+ * @param date - Reference date
+ * @returns Date object set to start of week (Sunday 00:00:00)
+ */
+const getWeekStart = (date: Date): Date => {
+  const d = new Date(date)
+  const day = d.getDay()
+  d.setDate(d.getDate() - day)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
 /**
  * DashboardPage Component
  *
  * A comprehensive dashboard featuring:
  * - Key metric summary cards (Products, Low Stock, Revenue, Transactions)
- * - Weekly sales chart (Chart.js bar chart)
- * - Low stock alerts table
- * - Recent transactions table
+ * - Weekly sales chart (Chart.js bar chart) with dynamic API data
+ * - Low stock alerts table from real inventory
+ * - Recent transactions table from API
  * - Quick navigation links
+ *
+ * Uses useProducts and useTransactions hooks for dynamic data fetching.
  */
 const DashboardPage: React.FC = () => {
+  // ============================================================================
+  // DATA FETCHING
+  // ============================================================================
+
   /**
-   * Calculate summary statistics from product data
+   * Fetch products and inventory statistics
+   */
+  const {
+    products,
+    stats: productApiStats,
+    loading: productsLoading,
+    error: productsError,
+    refetch: refetchProducts,
+  } = useProducts()
+
+  /**
+   * Fetch transactions for this week (for chart and recent transactions)
+   */
+  const {
+    transactions,
+    stats: transactionApiStats,
+    dailySales,
+    loading: transactionsLoading,
+    error: transactionsError,
+    refetch: refetchTransactions,
+  } = useTransactions({ period: 'week' })
+
+  // Combined loading state
+  const isLoading = productsLoading || transactionsLoading
+
+  // Combined error state
+  const error = productsError || transactionsError
+
+  // ============================================================================
+  // DERIVED DATA - PRODUCTS
+  // ============================================================================
+
+  /**
+   * Calculate low stock products for alert table
+   * Filters products below threshold and sorts by stock quantity ascending
+   */
+  const lowStockProducts = useMemo((): Product[] => {
+    return products
+      .filter((p) => p.stockQuantity < LOW_STOCK_THRESHOLD)
+      .sort((a, b) => a.stockQuantity - b.stockQuantity)
+      .slice(0, LOW_STOCK_DISPLAY_LIMIT)
+  }, [products])
+
+  /**
+   * Product statistics for dashboard cards
    */
   const productStats = useMemo(() => {
-    const totalProducts = PRODUCTS_DATA.length
-    const totalInventoryValue = PRODUCTS_DATA.reduce(
-      (sum, product) => sum + product.price * product.stockQuantity,
-      0,
-    )
-    const lowStockProducts = PRODUCTS_DATA.filter(
-      (p) => p.stockQuantity < LOW_STOCK_THRESHOLD,
-    )
-    const outOfStockCount = PRODUCTS_DATA.filter(
-      (p) => p.stockQuantity === 0,
-    ).length
-    const totalUnits = PRODUCTS_DATA.reduce(
-      (sum, product) => sum + product.stockQuantity,
-      0,
-    )
-
     return {
-      totalProducts,
-      totalInventoryValue,
-      lowStockCount: lowStockProducts.length,
-      outOfStockCount,
-      totalUnits,
-      lowStockProducts: lowStockProducts
-        .sort((a, b) => a.stockQuantity - b.stockQuantity)
-        .slice(0, LOW_STOCK_DISPLAY_LIMIT),
+      totalProducts: productApiStats.totalProducts,
+      totalUnits: productApiStats.totalUnits,
+      totalInventoryValue: productApiStats.totalValue,
+      lowStockCount: productApiStats.lowStockCount,
+      outOfStockCount: productApiStats.outOfStockCount,
     }
-  }, [])
+  }, [productApiStats])
+
+  // ============================================================================
+  // DERIVED DATA - TRANSACTIONS
+  // ============================================================================
 
   /**
-   * Calculate sales statistics
+   * Calculate today's statistics by filtering transactions
    */
-  const salesStats = useMemo(() => {
-    const weeklyTotal = WEEKLY_SALES_DATA.reduce(
-      (sum, day) => sum + day.amount,
-      0,
-    )
-    const todaysSales = RECENT_SALES.filter((sale) => {
-      const today = new Date()
-      return (
-        sale.date.getDate() === today.getDate() &&
-        sale.date.getMonth() === today.getMonth() &&
-        sale.date.getFullYear() === today.getFullYear()
-      )
+  const todaysStats = useMemo(() => {
+    const today = new Date()
+    const todayStr = today.toISOString().split('T')[0]
+
+    const todaysTransactions = transactions.filter((t) => {
+      const transactionDate = new Date(t.createdAt).toISOString().split('T')[0]
+      return transactionDate === todayStr
     })
-    const todaysRevenue = todaysSales.reduce(
-      (sum, sale) => sum + sale.totalAmount,
+
+    const todaysRevenue = todaysTransactions.reduce(
+      (sum, t) => sum + t.totalAmount,
       0,
     )
-    const todaysTransactions = todaysSales.length
 
     return {
-      weeklyTotal,
-      todaysRevenue,
-      todaysTransactions,
-      recentTransactions: RECENT_SALES.slice(0, RECENT_TRANSACTIONS_LIMIT),
+      revenue: todaysRevenue,
+      transactionCount: todaysTransactions.length,
     }
-  }, [])
+  }, [transactions])
 
   /**
-   * Chart data configuration
+   * Weekly sales total from API stats
    */
-  const chartData: ChartData<'bar'> = useMemo(
-    () => ({
-      labels: WEEKLY_SALES_DATA.map((d) => d.day),
+  const weeklyTotal = transactionApiStats.totalRevenue
+
+  /**
+   * Recent transactions for display table
+   */
+  const recentTransactions = useMemo((): Transaction[] => {
+    return transactions.slice(0, RECENT_TRANSACTIONS_LIMIT)
+  }, [transactions])
+
+  // ============================================================================
+  // CHART DATA
+  // ============================================================================
+
+  /**
+   * Chart data configuration - builds from dailySales API response
+   * Creates a bar for each day of the current week
+   */
+  const chartData: ChartData<'bar'> = useMemo(() => {
+    const now = new Date()
+    const weekStart = getWeekStart(now)
+    const dailyData: number[] = []
+    const labels: string[] = []
+
+    // Build data for each day of the week
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(weekStart)
+      date.setDate(date.getDate() + i)
+      const dateStr = date.toISOString().split('T')[0]
+      const dayName = DAYS_OF_WEEK[date.getDay()]
+
+      labels.push(`${dayName} ${date.getDate()}`)
+
+      // Find matching daily sales data or default to 0
+      const daySalesData = dailySales.find((d) => d.date === dateStr)
+      dailyData.push(daySalesData?.totalAmount ?? 0)
+    }
+
+    return {
+      labels,
       datasets: [
         {
           label: 'Daily Sales ($)',
-          data: WEEKLY_SALES_DATA.map((d) => d.amount),
+          data: dailyData,
           backgroundColor: 'rgba(56, 112, 230, 0.8)',
           borderColor: 'rgb(56, 112, 230)',
           borderWidth: 1,
@@ -342,9 +220,8 @@ const DashboardPage: React.FC = () => {
           barThickness: 32,
         },
       ],
-    }),
-    [],
-  )
+    }
+  }, [dailySales])
 
   /**
    * Chart options configuration
@@ -405,8 +282,14 @@ const DashboardPage: React.FC = () => {
     [],
   )
 
+  // ============================================================================
+  // HELPER FUNCTIONS
+  // ============================================================================
+
   /**
    * Format price as USD currency
+   * @param price - Number to format
+   * @returns Formatted currency string
    */
   const formatPrice = (price: number): string => {
     return new Intl.NumberFormat('en-US', {
@@ -416,9 +299,13 @@ const DashboardPage: React.FC = () => {
   }
 
   /**
-   * Format date for display
+   * Format date for display in transactions table
+   * Shows "Today" for current date, otherwise shows formatted date
+   * @param dateString - ISO date string
+   * @returns Formatted date string
    */
-  const formatDate = (date: Date): string => {
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString)
     const now = new Date()
     const isToday =
       date.getDate() === now.getDate() &&
@@ -440,6 +327,26 @@ const DashboardPage: React.FC = () => {
     })
   }
 
+  /**
+   * Handle retry action for errors
+   */
+  const handleRetry = () => {
+    refetchProducts()
+    refetchTransactions()
+  }
+
+  // ============================================================================
+  // LOADING STATE
+  // ============================================================================
+
+  if (isLoading) {
+    return <LoadingSpinner />
+  }
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
+
   return (
     <>
       <PageHead
@@ -455,6 +362,16 @@ const DashboardPage: React.FC = () => {
             Welcome back! Here's an overview of your inventory.
           </p>
         </div>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert
+            variant="error"
+            title="Failed to load dashboard data"
+            message={error}
+            onClose={handleRetry}
+          />
+        )}
 
         {/* Summary Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -508,10 +425,10 @@ const DashboardPage: React.FC = () => {
                 <div>
                   <p className="text-sm text-muted">Today's Revenue</p>
                   <p className="text-2xl font-bold text-headline">
-                    {formatPrice(salesStats.todaysRevenue)}
+                    {formatPrice(todaysStats.revenue)}
                   </p>
                   <p className="text-xs text-muted">
-                    {salesStats.todaysTransactions} transactions
+                    {todaysStats.transactionCount} transactions
                   </p>
                 </div>
               </div>
@@ -528,7 +445,7 @@ const DashboardPage: React.FC = () => {
                 <div>
                   <p className="text-sm text-muted">Weekly Sales</p>
                   <p className="text-2xl font-bold text-headline">
-                    {formatPrice(salesStats.weeklyTotal)}
+                    {formatPrice(weeklyTotal)}
                   </p>
                   <p className="text-xs text-muted">Last 7 days</p>
                 </div>
@@ -651,7 +568,7 @@ const DashboardPage: React.FC = () => {
               </div>
             </Card.Header>
             <Card.Body className="p-0">
-              {productStats.lowStockProducts.length === 0 ? (
+              {lowStockProducts.length === 0 ? (
                 <div className="p-6 text-center">
                   <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-3">
                     <Package className="h-6 w-6 text-success" />
@@ -671,7 +588,7 @@ const DashboardPage: React.FC = () => {
                       </Table.Row>
                     </Table.Header>
                     <Table.Body>
-                      {productStats.lowStockProducts.map((product) => (
+                      {lowStockProducts.map((product) => (
                         <Table.Row
                           key={product.id}
                           className={cn(
@@ -736,7 +653,7 @@ const DashboardPage: React.FC = () => {
               </div>
             </Card.Header>
             <Card.Body className="p-0">
-              {salesStats.recentTransactions.length === 0 ? (
+              {recentTransactions.length === 0 ? (
                 <div className="p-6 text-center">
                   <div className="h-12 w-12 rounded-full bg-muted/10 flex items-center justify-center mx-auto mb-3">
                     <ShoppingCart className="h-6 w-6 text-muted" />
@@ -754,26 +671,26 @@ const DashboardPage: React.FC = () => {
                       </Table.Row>
                     </Table.Header>
                     <Table.Body>
-                      {salesStats.recentTransactions.map((sale) => (
-                        <Table.Row key={sale.id}>
+                      {recentTransactions.map((transaction) => (
+                        <Table.Row key={transaction.id}>
                           <Table.Cell>
                             <div>
                               <span className="font-medium text-headline text-sm block whitespace-nowrap">
-                                {sale.productName}
+                                {transaction.productName}
                               </span>
                               <span className="text-xs text-muted">
-                                {formatDate(sale.date)}
+                                {formatDate(transaction.createdAt)}
                               </span>
                             </div>
                           </Table.Cell>
                           <Table.Cell align="center">
                             <span className="text-sm text-text">
-                              {sale.quantity}
+                              {transaction.quantity}
                             </span>
                           </Table.Cell>
                           <Table.Cell align="right">
                             <span className="font-medium text-success text-sm whitespace-nowrap">
-                              {formatPrice(sale.totalAmount)}
+                              {formatPrice(transaction.totalAmount)}
                             </span>
                           </Table.Cell>
                         </Table.Row>
