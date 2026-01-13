@@ -11,6 +11,33 @@ import type { Request, Response, NextFunction } from 'express';
 import { getAuth } from '@/lib/auth.lib.js';
 import { logger } from '@/utils/logger.util.js';
 
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+/**
+ * Extended user type that includes the role field added by better-auth admin plugin.
+ * The admin plugin adds a `role` field to users, but this isn't reflected in the
+ * base better-auth types. We define this interface to properly type the session user.
+ */
+interface AdminPluginUser {
+  id: string;
+  email: string;
+  name: string;
+  image?: string | null;
+  emailVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  role?: string;
+  banned?: boolean;
+  banReason?: string | null;
+  banExpires?: Date | null;
+}
+
+// ============================================================================
+// MIDDLEWARE
+// ============================================================================
+
 /**
  * Middleware to require authenticated user session.
  * Verifies the session cookie and attaches user to request.
@@ -46,12 +73,16 @@ export const requireUser = async (
       return;
     }
 
+    // Cast user to include admin plugin fields (role, banned, etc.)
+    // The admin plugin extends the user schema with these fields
+    const user = session.user as AdminPluginUser;
+
     // Attach user info to request for use in controllers
     req.user = {
-      id: session.user.id,
-      email: session.user.email,
-      name: session.user.name,
-      role: session.user.role,
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
     };
 
     next();
