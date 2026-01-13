@@ -8,6 +8,7 @@
  * Features:
  * - Connection caching to prevent multiple connections in dev/HMR
  * - Centralized environment configuration
+ * - Explicit database name from environment
  * - Async initialization pattern for proper startup sequencing
  *
  * @module lib/db.lib
@@ -36,6 +37,7 @@ declare global {
 // ============================================================================
 
 const MONGO_URI = env.MONGO_URI;
+const DATABASE_NAME = env.DATABASE_NAME;
 
 /**
  * Global connection cache for development HMR (Hot Module Replacement).
@@ -82,17 +84,19 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
     const opts = {
       bufferCommands: false, // Disable Mongoose buffering - we handle connection timing
       maxPoolSize: 10, // Connection pool size
+      dbName: DATABASE_NAME, // Explicit database name from environment
     };
 
     logger.info('Establishing Mongoose database connection', {
       uri: MONGO_URI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@'), // Mask credentials
+      database: DATABASE_NAME,
     });
 
     cached!.promise = mongoose
       .connect(MONGO_URI, opts)
       .then((mongooseInstance) => {
         logger.info('Mongoose connected successfully', {
-          name: mongooseInstance.connection.name,
+          database: DATABASE_NAME,
           host: mongooseInstance.connection.host,
           readyState: mongooseInstance.connection.readyState,
         });
@@ -143,4 +147,13 @@ export async function disconnectDatabase(): Promise<void> {
  */
 export function getMongooseConnection(): mongoose.Connection {
   return mongoose.connection;
+}
+
+/**
+ * Gets the configured database name.
+ *
+ * @returns Database name from environment configuration
+ */
+export function getDatabaseName(): string {
+  return DATABASE_NAME;
 }

@@ -35,6 +35,7 @@ declare global {
 // ============================================================================
 
 const MONGO_URI = env.MONGO_URI;
+const DATABASE_NAME = env.DATABASE_NAME;
 
 /**
  * Global connection cache for development HMR (Hot Module Replacement).
@@ -91,6 +92,7 @@ export async function connectMongoClient(): Promise<{
 
     logger.info('Establishing MongoClient connection for auth', {
       uri: MONGO_URI.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@'), // Mask credentials
+      database: DATABASE_NAME,
     });
 
     cached!.promise = (async () => {
@@ -98,12 +100,11 @@ export async function connectMongoClient(): Promise<{
         const client = new MongoClient(MONGO_URI, options);
         await client.connect();
 
-        // Extract database name from URI or use default
-        const dbName = extractDbNameFromUri(MONGO_URI);
-        const db = client.db(dbName);
+        // Use explicit database name from environment config
+        const db = client.db(DATABASE_NAME);
 
         logger.info('MongoClient connected successfully for auth', {
-          database: dbName,
+          database: DATABASE_NAME,
         });
 
         return { client, db };
@@ -125,38 +126,6 @@ export async function connectMongoClient(): Promise<{
   cached!.db = result.db;
 
   return result;
-}
-
-/**
- * Extracts database name from MongoDB URI.
- *
- * @param uri - MongoDB connection URI
- * @returns Database name or undefined for default
- *
- * @example
- * ```typescript
- * extractDbNameFromUri('mongodb+srv://user:pass@cluster.mongodb.net/mydb?options')
- * // Returns: 'mydb'
- * ```
- */
-function extractDbNameFromUri(uri: string): string | undefined {
-  try {
-    // Handle mongodb+srv:// and mongodb:// schemes
-    // Format: mongodb[+srv]://[user:pass@]host[:port]/[database][?options]
-    const withoutProtocol = uri.replace(/^mongodb(\+srv)?:\/\//, '');
-    const withoutAuth = withoutProtocol.replace(/^[^@]+@/, '');
-    const pathPart = withoutAuth.split('/')[1];
-
-    if (!pathPart) {
-      return undefined;
-    }
-
-    // Remove query parameters
-    const dbName = pathPart.split('?')[0];
-    return dbName || undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 /**
@@ -212,4 +181,13 @@ export function getAuthDb(): Db {
     );
   }
   return cached.db;
+}
+
+/**
+ * Gets the configured database name.
+ *
+ * @returns Database name from environment configuration
+ */
+export function getDatabaseName(): string {
+  return DATABASE_NAME;
 }

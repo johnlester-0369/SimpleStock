@@ -37,6 +37,7 @@ interface EnvConfig {
   readonly MONGODB_URI: string;
   readonly MONGO_PASSWORD: string;
   readonly MONGO_URI: string; // Computed: MONGODB_URI with password injected
+  readonly DATABASE_NAME: string;
   
   // Authentication configuration
   readonly BASE_URL: string;
@@ -191,7 +192,7 @@ function buildMongoUri(mongodbUri: string, password: string): string {
   if (!mongodbUri.includes('<PASSWORD>')) {
     throw new Error(
       `[ENV] MONGODB_URI must contain '<PASSWORD>' placeholder.\n` +
-        `Example: mongodb+srv://username:<PASSWORD>@cluster.mongodb.net/database\n` +
+        `Example: mongodb+srv://username:<PASSWORD>@cluster.mongodb.net\n` +
         `Current value does not contain the placeholder.`,
     );
   }
@@ -201,6 +202,74 @@ function buildMongoUri(mongodbUri: string, password: string): string {
   
   // Replace the placeholder with the encoded password
   return mongodbUri.replace('<PASSWORD>', encodedPassword);
+}
+
+/**
+ * Extracts database name from MongoDB URI as fallback.
+ * 
+ * @param uri - MongoDB connection URI
+ * @returns Database name or undefined if not found in URI
+ * 
+ * @example
+ * ```typescript
+ * extractDbNameFromUri('mongodb+srv://user:pass@cluster.mongodb.net/mydb?options')
+ * // Returns: 'mydb'
+ * ```
+ */
+function extractDbNameFromUri(uri: string): string | undefined {
+  try {
+    // Handle mongodb+srv:// and mongodb:// schemes
+    // Format: mongodb[+srv]://[user:pass@]host[:port]/[database][?options]
+    const withoutProtocol = uri.replace(/^mongodb(\+srv)?:\/\//, '');
+    const withoutAuth = withoutProtocol.replace(/^[^@]+@/, '');
+    const pathPart = withoutAuth.split('/')[1];
+
+    if (!pathPart) {
+      return undefined;
+    }
+
+    // Remove query parameters
+    const dbName = pathPart.split('?')[0];
+    return dbName || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Gets the database name from environment or extracts from URI.
+ * Prefers explicit DATABASE_NAME, falls back to URI extraction.
+ * 
+ * @param mongoUri - Complete MongoDB connection URI
+ * @returns Database name
+ * @throws {Error} If database name cannot be determined
+ */
+function getDatabaseName(mongoUri: string): string {
+  // First, check for explicit DATABASE_NAME env var
+  const explicitName = getOptionalEnv('DATABASE_NAME');
+  
+  if (explicitName) {
+    return explicitName;
+  }
+  
+  // Fallback: extract from URI
+  const extractedName = extractDbNameFromUri(mongoUri);
+  
+  if (extractedName) {
+    console.warn(
+      `[ENV] DATABASE_NAME not set. Extracted "${extractedName}" from MONGODB_URI.\n` +
+        `Recommendation: Set DATABASE_NAME explicitly in your .env file.`,
+    );
+    return extractedName;
+  }
+  
+  // Neither explicit nor in URI - fail
+  throw new Error(
+    `[ENV] Missing database name. Either:\n` +
+      `  1. Set DATABASE_NAME environment variable (recommended), or\n` +
+      `  2. Include database name in MONGODB_URI path\n` +
+      `Example: DATABASE_NAME=myapp`,
+  );
 }
 
 // ============================================================================
@@ -213,6 +282,10 @@ const nodeEnv = getNodeEnv();
 // Get database credentials
 const mongodbUri = getRequiredEnv('MONGODB_URI');
 const mongoPassword = getRequiredEnv('MONGO_PASSWORD');
+const mongoUri = buildMongoUri(mongodbUri, mongoPassword);
+
+// Get database name (with validation)
+const databaseName = getDatabaseName(mongoUri);
 
 /**
  * Validated environment configuration.
@@ -222,10 +295,11 @@ const mongoPassword = getRequiredEnv('MONGO_PASSWORD');
  * ```typescript
  * import { env } from '@/config/env.config.js';
  *
- * console.log(env.NODE_ENV);      // 'development' | 'production' | 'test'
- * console.log(env.PORT);          // '3000'
- * console.log(env.MONGO_URI);     // Complete MongoDB URI with encoded password
- * console.log(env.BASE_URL);      // 'http://localhost:3000'
+ * console.log(env.NODE_ENV);       // 'development' | 'production' | 'test'
+ * console.log(env.PORT);           // '3000'
+ * console.log(env.MONGO_URI);      // Complete MongoDB URI with encoded password
+ * console.log(env.DATABASE_NAME);  // 'myapp'
+ * console.log(env.BASE_URL);       // 'http://localhost:3000'
  *
  * if (env.isDevelopment) {
  *   // Development-only code
@@ -245,7 +319,8 @@ export const env: EnvConfig = {
   // Database configuration
   MONGODB_URI: mongodbUri,
   MONGO_PASSWORD: mongoPassword,
-  MONGO_URI: buildMongoUri(mongodbUri, mongoPassword),
+  MONGO_URI: mongoUri,
+  DATABASE_NAME: databaseName,
 
   // Authentication configuration
   BASE_URL: getRequiredEnv('BASE_URL'),
