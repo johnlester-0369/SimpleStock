@@ -92,7 +92,10 @@ class SupplierRepository {
       return supplier;
     } catch (error) {
       // Invalid ObjectId format
-      logger.debug('Invalid supplier ID format', { supplierId });
+      logger.debug('Invalid supplier ID format', {
+        supplierId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return null;
     }
   }

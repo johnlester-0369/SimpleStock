@@ -102,7 +102,10 @@ class ProductRepository {
       return product;
     } catch (error) {
       // Invalid ObjectId format
-      logger.debug('Invalid product ID format', { productId });
+      logger.debug('Invalid product ID format', {
+        productId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return null;
     }
   }

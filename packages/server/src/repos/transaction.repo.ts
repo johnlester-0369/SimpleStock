@@ -110,7 +110,10 @@ class TransactionRepository {
 
       return transaction;
     } catch (error) {
-      logger.debug('Invalid transaction ID format', { transactionId });
+      logger.debug('Invalid transaction ID format', {
+        transactionId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return null;
     }
   }
