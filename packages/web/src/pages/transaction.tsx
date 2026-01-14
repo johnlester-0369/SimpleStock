@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   ArrowLeftRight,
   Search,
@@ -106,18 +106,6 @@ const TransactionPage: React.FC = () => {
   })
 
   // ============================================================================
-  // EFFECTS
-  // ============================================================================
-
-  /**
-   * Reset page to 1 when filters change
-   * This is the proper React pattern for responding to filter changes
-   */
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery, dateFilter])
-
-  // ============================================================================
   // DERIVED STATE
   // ============================================================================
 
@@ -134,16 +122,20 @@ const TransactionPage: React.FC = () => {
 
   /**
    * Handle search input change
+   * Resets pagination to page 1 when search query changes
    */
   const handleSearchChange = (value: string) => {
     setSearchQuery(value)
+    setCurrentPage(1)
   }
 
   /**
    * Handle date filter change
+   * Resets pagination to page 1 when filter changes
    */
   const handleDateFilterChange = (value: string) => {
     setDateFilter(value as DateFilterValue)
+    setCurrentPage(1)
   }
 
   // ============================================================================

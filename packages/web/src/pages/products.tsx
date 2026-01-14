@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Package,
@@ -173,18 +173,6 @@ const ProductsPage: React.FC = () => {
     })
 
   // ============================================================================
-  // EFFECTS
-  // ============================================================================
-
-  /**
-   * Reset page to 1 when filters change
-   * This is the proper React pattern for responding to filter changes
-   */
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery, stockFilter, supplierFilter])
-
-  // ============================================================================
   // DERIVED STATE
   // ============================================================================
 
@@ -210,17 +198,21 @@ const ProductsPage: React.FC = () => {
 
   /**
    * Handle search input change
+   * Resets pagination to page 1 when search query changes
    */
   const handleSearchChange = (value: string) => {
     setSearchQuery(value)
+    setCurrentPage(1)
   }
 
   /**
    * Handle stock filter change
+   * Resets pagination to page 1 when filter changes
    */
   const handleStockFilterChange = (value: string) => {
     const filterValue = value as StockFilterValue
     setStockFilter(filterValue)
+    setCurrentPage(1)
     // Update URL params
     if (filterValue === 'all') {
       searchParams.delete('filter')
@@ -232,9 +224,11 @@ const ProductsPage: React.FC = () => {
 
   /**
    * Handle supplier filter change
+   * Resets pagination to page 1 when filter changes
    */
   const handleSupplierFilterChange = (value: string) => {
     setSupplierFilter(value)
+    setCurrentPage(1)
   }
 
   /**
