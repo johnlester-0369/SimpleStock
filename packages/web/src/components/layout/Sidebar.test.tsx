@@ -4,6 +4,15 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Sidebar from './Sidebar'
 
+// Define prop types for mock components
+interface MockCloseButtonProps {
+  onClick?: () => void
+  'aria-label'?: string
+  size?: string
+  variant?: string
+  className?: string
+}
+
 // Mock dependencies
 vi.mock('@/components/common/Brand', () => ({
   BrandLogo: () => <div data-testid="mock-brand-logo">BrandLogo</div>,
@@ -11,7 +20,7 @@ vi.mock('@/components/common/Brand', () => ({
 }))
 
 vi.mock('@/components/ui/CloseButton', () => ({
-  default: ({ onClick, 'aria-label': ariaLabel }: any) => (
+  default: ({ onClick, 'aria-label': ariaLabel }: MockCloseButtonProps) => (
     <button onClick={onClick} aria-label={ariaLabel}>
       Close
     </button>
@@ -19,7 +28,7 @@ vi.mock('@/components/ui/CloseButton', () => ({
 }))
 
 vi.mock('@/utils/cn.util', () => ({
-  cn: (...classes: any[]) => classes.filter(Boolean).join(' '),
+  cn: (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' '),
 }))
 
 describe('Sidebar', () => {
@@ -137,7 +146,7 @@ describe('Sidebar', () => {
     expect(sidebar).toHaveClass('lg:sticky', 'lg:translate-x-0')
   })
 
-  it('should navigate when menu item is clicked', async () => {
+  it('should navigate when menu item is clicked', () => {
     renderSidebar()
     const dashboardLink = screen.getByText('Dashboard').closest('a')
     

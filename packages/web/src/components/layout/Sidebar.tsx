@@ -105,7 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   // Settings is always expanded by default
   const [expandedItems, setExpandedItems] = useState<string[]>(() => {
     // Always include Settings in the default expanded items
-    const defaultExpanded = [ROUTE_SETTINGS]
+    const defaultExpanded: string[] = [ROUTE_SETTINGS]
 
     // Also auto-expand any other parent if its child is active on initial load
     const activeParent = navItems.find((item) =>

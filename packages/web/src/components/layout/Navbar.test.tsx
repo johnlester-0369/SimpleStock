@@ -3,10 +3,18 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Navbar from './Navbar'
+import type { ReactNode } from 'react'
+
+// Define prop types for mock components
+interface MockIconButtonProps {
+  icon: ReactNode
+  onClick?: () => void
+  'aria-label'?: string
+}
 
 // Mock dependencies
 vi.mock('@/components/ui/IconButton', () => ({
-  default: ({ icon, onClick, 'aria-label': ariaLabel }: any) => (
+  default: ({ icon, onClick, 'aria-label': ariaLabel }: MockIconButtonProps) => (
     <button onClick={onClick} aria-label={ariaLabel}>
       {icon} Mock IconButton
     </button>
@@ -14,7 +22,7 @@ vi.mock('@/components/ui/IconButton', () => ({
 }))
 
 vi.mock('@/utils/cn.util', () => ({
-  cn: (...classes: any[]) => classes.filter(Boolean).join(' '),
+  cn: (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' '),
 }))
 
 const mockNavigate = vi.fn()

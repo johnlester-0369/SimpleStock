@@ -137,11 +137,16 @@ class LocalSupplierService {
 
   /**
    * Get all suppliers with optional filters
+   * @param params - Query parameters for filtering
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
   async getSuppliers(
     params?: GetLocalSuppliersParams,
-    _signal?: AbortSignal,
+    signal?: AbortSignal,
   ): Promise<LocalSupplier[]> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     await new Promise((resolve) => setTimeout(resolve, 200))
 
     let suppliers = this.initializeIfEmpty()
@@ -161,8 +166,13 @@ class LocalSupplierService {
 
   /**
    * Get single supplier by ID
+   * @param id - Supplier ID
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
-  async getSupplierById(id: string, _signal?: AbortSignal): Promise<LocalSupplier> {
+  async getSupplierById(id: string, signal?: AbortSignal): Promise<LocalSupplier> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     const suppliers = this.initializeIfEmpty()
@@ -177,8 +187,12 @@ class LocalSupplierService {
 
   /**
    * Get supplier names for dropdowns
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
-  async getSupplierNames(_signal?: AbortSignal): Promise<string[]> {
+  async getSupplierNames(signal?: AbortSignal): Promise<string[]> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     const suppliers = this.initializeIfEmpty()

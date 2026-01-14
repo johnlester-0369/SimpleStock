@@ -186,7 +186,7 @@ export function useProductMutations(
         availableStock,
       )
 
-      if (!validation.success) {
+      if (!validation.success || !validation.data) {
         onError?.(validation.error ?? 'Validation failed')
         return null
       }

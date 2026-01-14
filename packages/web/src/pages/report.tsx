@@ -65,27 +65,6 @@ const getWeekEnd = (date: Date): Date => {
 }
 
 /**
- * Get the start of the month for a given date
- */
-const getMonthStart = (date: Date): Date => {
-  const d = new Date(date)
-  d.setDate(1)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-/**
- * Get the end of the month for a given date
- */
-const getMonthEnd = (date: Date): Date => {
-  const d = new Date(date)
-  d.setMonth(d.getMonth() + 1)
-  d.setDate(0)
-  d.setHours(23, 59, 59, 999)
-  return d
-}
-
-/**
  * ReportPage Component
  *
  * A sales report page featuring:
@@ -156,18 +135,18 @@ const ReportPage: React.FC = () => {
       for (let i = 0; i < 4; i++) {
         const weekDate = new Date(now)
         weekDate.setDate(weekDate.getDate() - i * 7)
-        const weekStart = getWeekStart(weekDate)
-        const weekEnd = getWeekEnd(weekDate)
-        const weekLabel = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+        const weekStartDate = getWeekStart(weekDate)
+        const weekEndDate = getWeekEnd(weekDate)
+        const weekLabel = `${weekStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
         weeklyData.set(weekLabel, 0)
       }
 
       // Aggregate daily sales into weeks
       dailySales.forEach((day) => {
         const dayDate = new Date(day.date)
-        const weekStart = getWeekStart(dayDate)
-        const weekEnd = getWeekEnd(dayDate)
-        const weekLabel = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+        const weekStartDate = getWeekStart(dayDate)
+        const weekEndDate = getWeekEnd(dayDate)
+        const weekLabel = `${weekStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
         
         const existing = weeklyData.get(weekLabel) ?? 0
         weeklyData.set(weekLabel, existing + day.totalAmount)
@@ -228,7 +207,7 @@ const ReportPage: React.FC = () => {
           callbacks: {
             label: (context) => {
               const value = context.parsed.y ?? 0
-              return `$${value.toFixed(2)}`
+              return `${value.toFixed(2)}`
             },
           },
         },
@@ -255,7 +234,7 @@ const ReportPage: React.FC = () => {
             font: {
               size: 12,
             },
-            callback: (value) => `$${value}`,
+            callback: (value) => `${value}`,
           },
         },
       },
@@ -292,9 +271,9 @@ const ReportPage: React.FC = () => {
   const getPeriodLabel = (): string => {
     if (periodFilter === 'week') {
       const now = new Date()
-      const weekStart = getWeekStart(now)
-      const weekEnd = getWeekEnd(now)
-      return `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+      const weekStartDate = getWeekStart(now)
+      const weekEndDate = getWeekEnd(now)
+      return `${weekStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
     } else {
       const now = new Date()
       return now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })

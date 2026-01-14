@@ -205,11 +205,16 @@ class LocalProductService {
 
   /**
    * Get all products with optional filters
+   * @param params - Query parameters for filtering
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
   async getProducts(
     params?: GetLocalProductsParams,
-    _signal?: AbortSignal,
+    signal?: AbortSignal,
   ): Promise<LocalProduct[]> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     // Simulate network delay
     await new Promise((resolve) => setTimeout(resolve, 200))
 
@@ -248,8 +253,13 @@ class LocalProductService {
 
   /**
    * Get single product by ID
+   * @param id - Product ID
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
-  async getProductById(id: string, _signal?: AbortSignal): Promise<LocalProduct> {
+  async getProductById(id: string, signal?: AbortSignal): Promise<LocalProduct> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     const products = this.initializeIfEmpty()
@@ -264,8 +274,12 @@ class LocalProductService {
 
   /**
    * Get product statistics
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
-  async getProductStats(_signal?: AbortSignal): Promise<LocalProductStats> {
+  async getProductStats(signal?: AbortSignal): Promise<LocalProductStats> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     const products = this.initializeIfEmpty()
@@ -286,11 +300,16 @@ class LocalProductService {
 
   /**
    * Get low stock products
+   * @param limit - Maximum number of products to return
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
   async getLowStockProducts(
     limit?: number,
-    _signal?: AbortSignal,
+    signal?: AbortSignal,
   ): Promise<{ products: LocalProduct[]; threshold: number }> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     const products = this.initializeIfEmpty()
@@ -307,8 +326,12 @@ class LocalProductService {
 
   /**
    * Get unique supplier names
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
-  async getSuppliers(_signal?: AbortSignal): Promise<string[]> {
+  async getSuppliers(signal?: AbortSignal): Promise<string[]> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     const products = this.initializeIfEmpty()

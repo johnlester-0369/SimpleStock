@@ -172,11 +172,12 @@ function getDateRange(
       return { start: getStartOfWeek(now), end: getEndOfWeek(now) }
     case 'month':
       return { start: getStartOfMonth(now), end: getEndOfMonth(now) }
-    default:
+    default: {
       // Return all time (year range)
       const yearAgo = new Date(now)
       yearAgo.setFullYear(yearAgo.getFullYear() - 1)
       return { start: yearAgo, end: now }
+    }
   }
 }
 
@@ -275,11 +276,16 @@ class LocalTransactionService {
 
   /**
    * Get all transactions with optional filters
+   * @param params - Query parameters for filtering
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
   async getTransactions(
     params?: GetLocalTransactionsParams,
-    _signal?: AbortSignal,
+    signal?: AbortSignal,
   ): Promise<LocalTransaction[]> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     await new Promise((resolve) => setTimeout(resolve, 200))
 
     let transactions = this.initializeIfEmpty()
@@ -325,11 +331,16 @@ class LocalTransactionService {
 
   /**
    * Get single transaction by ID
+   * @param id - Transaction ID
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
   async getTransactionById(
     id: string,
-    _signal?: AbortSignal,
+    signal?: AbortSignal,
   ): Promise<LocalTransaction> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     const transactions = this.initializeIfEmpty()
@@ -344,11 +355,16 @@ class LocalTransactionService {
 
   /**
    * Get transaction statistics
+   * @param params - Query parameters for filtering
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
   async getTransactionStats(
     params?: { period?: string; startDate?: string; endDate?: string },
-    _signal?: AbortSignal,
+    signal?: AbortSignal,
   ): Promise<LocalTransactionStats> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     // Get filtered transactions
@@ -374,11 +390,16 @@ class LocalTransactionService {
 
   /**
    * Get daily sales data
+   * @param params - Query parameters for filtering
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
   async getDailySales(
     params?: { period?: string; startDate?: string; endDate?: string },
-    _signal?: AbortSignal,
+    signal?: AbortSignal,
   ): Promise<LocalDailySalesResponse> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     // Get filtered transactions
@@ -432,11 +453,16 @@ class LocalTransactionService {
 
   /**
    * Get recent transactions
+   * @param limit - Maximum number of transactions to return
+   * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
   async getRecentTransactions(
     limit?: number,
-    _signal?: AbortSignal,
+    signal?: AbortSignal,
   ): Promise<LocalTransaction[]> {
+    // Signal parameter kept for API compatibility
+    void signal
+
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     let transactions = this.initializeIfEmpty()

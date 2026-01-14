@@ -3,9 +3,19 @@ import { render, screen } from '@testing-library/react'
 import DashboardLayout from './DashboardLayout'
 import { MemoryRouter } from 'react-router-dom'
 
+// Define prop types for mock components
+interface MockSidebarProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+interface MockNavbarProps {
+  onMenuClick: () => void
+}
+
 // Mock child components to isolate Layout tests
 vi.mock('./Sidebar', () => ({
-  default: ({ isOpen, onClose }: any) => (
+  default: ({ isOpen, onClose }: MockSidebarProps) => (
     <div data-testid="mock-sidebar" data-is-open={isOpen}>
       <button onClick={onClose}>Close Sidebar</button>
     </div>
@@ -13,7 +23,7 @@ vi.mock('./Sidebar', () => ({
 }))
 
 vi.mock('./Navbar', () => ({
-  default: ({ onMenuClick }: any) => (
+  default: ({ onMenuClick }: MockNavbarProps) => (
     <div data-testid="mock-navbar">
       <button onClick={onMenuClick}>Toggle Menu</button>
     </div>

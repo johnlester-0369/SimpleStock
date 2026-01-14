@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { BrandLogo, BrandName } from './Brand'
 import { APP_NAME } from '@/constants/app.constants'
+import type { SVGProps } from 'react'
 
-// Mock the SVG import
+// Mock the SVG import with proper typing
 vi.mock('@/assets/logo.svg?react', () => ({
-  default: (props: any) => <svg data-testid="mock-logo" {...props} />,
+  default: (props: SVGProps<SVGSVGElement>) => <svg data-testid="mock-logo" {...props} />,
 }))
 
 describe('Brand Components', () => {

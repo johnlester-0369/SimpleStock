@@ -152,6 +152,63 @@ function createSession(user: LocalUser): LocalSession {
 }
 
 // ============================================================================
+// SESSION HOOK (Standalone function, not class method)
+// ============================================================================
+
+/**
+ * React hook for getting current session.
+ * Reads from localStorage and manages state.
+ */
+function useLocalSession(): UseSessionReturn {
+  const [data, setData] = useState<LocalSession | null>(null)
+  const [isPending, setIsPending] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  const loadSession = useCallback(() => {
+    try {
+      const session = getStorageItem<LocalSession | null>(
+        STORAGE_KEYS.AUTH_SESSION,
+        null,
+      )
+
+      if (session) {
+        // Check if session is expired
+        const expiresAt = new Date(session.session.expiresAt)
+        if (expiresAt > new Date()) {
+          setData(session)
+        } else {
+          // Session expired, clean up
+          removeStorageItem(STORAGE_KEYS.AUTH_SESSION)
+          setData(null)
+        }
+      } else {
+        setData(null)
+      }
+      setError(null)
+    } catch (err) {
+      console.error('Failed to load session:', err)
+      setError(err instanceof Error ? err : new Error('Failed to load session'))
+      setData(null)
+    } finally {
+      setIsPending(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Small delay to simulate async check
+    const timer = setTimeout(loadSession, 100)
+    return () => clearTimeout(timer)
+  }, [loadSession])
+
+  const refetch = useCallback(() => {
+    setIsPending(true)
+    loadSession()
+  }, [loadSession])
+
+  return { data, isPending, error, refetch }
+}
+
+// ============================================================================
 // LOCAL AUTH CLIENT
 // ============================================================================
 
@@ -162,56 +219,9 @@ function createSession(user: LocalUser): LocalSession {
 class LocalAuthClient {
   /**
    * React hook for getting current session.
-   * Reads from localStorage and manages state.
+   * Delegates to the standalone useLocalSession hook.
    */
-  useSession(): UseSessionReturn {
-    const [data, setData] = useState<LocalSession | null>(null)
-    const [isPending, setIsPending] = useState(true)
-    const [error, setError] = useState<Error | null>(null)
-
-    const loadSession = useCallback(() => {
-      try {
-        const session = getStorageItem<LocalSession | null>(
-          STORAGE_KEYS.AUTH_SESSION,
-          null,
-        )
-
-        if (session) {
-          // Check if session is expired
-          const expiresAt = new Date(session.session.expiresAt)
-          if (expiresAt > new Date()) {
-            setData(session)
-          } else {
-            // Session expired, clean up
-            removeStorageItem(STORAGE_KEYS.AUTH_SESSION)
-            setData(null)
-          }
-        } else {
-          setData(null)
-        }
-        setError(null)
-      } catch (err) {
-        console.error('Failed to load session:', err)
-        setError(err instanceof Error ? err : new Error('Failed to load session'))
-        setData(null)
-      } finally {
-        setIsPending(false)
-      }
-    }, [])
-
-    useEffect(() => {
-      // Small delay to simulate async check
-      const timer = setTimeout(loadSession, 100)
-      return () => clearTimeout(timer)
-    }, [loadSession])
-
-    const refetch = useCallback(() => {
-      setIsPending(true)
-      loadSession()
-    }, [loadSession])
-
-    return { data, isPending, error, refetch }
-  }
+  useSession = useLocalSession
 
   /**
    * Sign in with email/password
