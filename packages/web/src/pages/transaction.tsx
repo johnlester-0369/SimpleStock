@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   ArrowLeftRight,
   Search,
@@ -89,12 +89,6 @@ const TransactionPage: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<DateFilterValue>('week')
   const [currentPage, setCurrentPage] = useState(1)
 
-  // Track previous filter values for page reset
-  const prevFiltersRef = useRef({
-    searchQuery,
-    dateFilter,
-  })
-
   // ============================================================================
   // HOOKS
   // ============================================================================
@@ -112,22 +106,16 @@ const TransactionPage: React.FC = () => {
   })
 
   // ============================================================================
-  // FILTER CHANGE DETECTION (Reset page when filters change)
+  // EFFECTS
   // ============================================================================
 
-  // Check if filters changed and reset page accordingly
-  // This avoids the setState-in-useEffect anti-pattern
-  const filtersChanged =
-    prevFiltersRef.current.searchQuery !== searchQuery ||
-    prevFiltersRef.current.dateFilter !== dateFilter
-
-  if (filtersChanged) {
-    prevFiltersRef.current = { searchQuery, dateFilter }
-    // Schedule page reset for next tick to avoid setState during render
-    if (currentPage !== 1) {
-      setTimeout(() => setCurrentPage(1), 0)
-    }
-  }
+  /**
+   * Reset page to 1 when filters change
+   * This is the proper React pattern for responding to filter changes
+   */
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, dateFilter])
 
   // ============================================================================
   // DERIVED STATE
@@ -149,7 +137,6 @@ const TransactionPage: React.FC = () => {
    */
   const handleSearchChange = (value: string) => {
     setSearchQuery(value)
-    setCurrentPage(1) // Reset page when search changes
   }
 
   /**
@@ -157,7 +144,6 @@ const TransactionPage: React.FC = () => {
    */
   const handleDateFilterChange = (value: string) => {
     setDateFilter(value as DateFilterValue)
-    setCurrentPage(1) // Reset page when filter changes
   }
 
   // ============================================================================
@@ -366,7 +352,8 @@ const TransactionPage: React.FC = () => {
                   <div className="p-4 border-t border-border">
                     <Pagination
                       currentPage={currentPage}
-                      totalPages={totalPages}
+                      totalItems={transactions.length}
+                      itemsPerPage={ITEMS_PER_PAGE}
                       onPageChange={setCurrentPage}
                     />
                   </div>

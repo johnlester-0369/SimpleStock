@@ -1,10 +1,9 @@
-import React, { useState, useMemo, useRef } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Package,
   Plus,
   Search,
-  Filter,
   Edit2,
   Trash2,
   ShoppingCart,
@@ -123,13 +122,6 @@ const ProductsPage: React.FC = () => {
   const [supplierFilter, setSupplierFilter] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
 
-  // Track previous filter values for page reset
-  const prevFiltersRef = useRef({
-    searchQuery,
-    stockFilter,
-    supplierFilter,
-  })
-
   // Dialog states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -181,24 +173,16 @@ const ProductsPage: React.FC = () => {
     })
 
   // ============================================================================
-  // FILTER CHANGE DETECTION (Reset page when filters change)
+  // EFFECTS
   // ============================================================================
 
-  // Check if filters changed and reset page accordingly
-  // This avoids the setState-in-useEffect anti-pattern
-  const filtersChanged =
-    prevFiltersRef.current.searchQuery !== searchQuery ||
-    prevFiltersRef.current.stockFilter !== stockFilter ||
-    prevFiltersRef.current.supplierFilter !== supplierFilter
-
-  if (filtersChanged) {
-    prevFiltersRef.current = { searchQuery, stockFilter, supplierFilter }
-    // Schedule page reset for next tick to avoid setState during render
-    if (currentPage !== 1) {
-      // Using setTimeout(0) to defer state update
-      setTimeout(() => setCurrentPage(1), 0)
-    }
-  }
+  /**
+   * Reset page to 1 when filters change
+   * This is the proper React pattern for responding to filter changes
+   */
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, stockFilter, supplierFilter])
 
   // ============================================================================
   // DERIVED STATE
@@ -229,7 +213,6 @@ const ProductsPage: React.FC = () => {
    */
   const handleSearchChange = (value: string) => {
     setSearchQuery(value)
-    setCurrentPage(1) // Reset page when search changes
   }
 
   /**
@@ -238,7 +221,6 @@ const ProductsPage: React.FC = () => {
   const handleStockFilterChange = (value: string) => {
     const filterValue = value as StockFilterValue
     setStockFilter(filterValue)
-    setCurrentPage(1) // Reset page when filter changes
     // Update URL params
     if (filterValue === 'all') {
       searchParams.delete('filter')
@@ -253,7 +235,6 @@ const ProductsPage: React.FC = () => {
    */
   const handleSupplierFilterChange = (value: string) => {
     setSupplierFilter(value)
-    setCurrentPage(1) // Reset page when filter changes
   }
 
   /**
@@ -367,6 +348,9 @@ const ProductsPage: React.FC = () => {
   if (loading && products.length === 0) {
     return <LoadingSpinner />
   }
+
+  // Determine if we should show the "Add Product" action in empty state
+  const showAddProductAction = !searchQuery && stockFilter === 'all' && !supplierFilter
 
   return (
     <>
@@ -488,12 +472,13 @@ const ProductsPage: React.FC = () => {
                       : 'Get started by adding your first product.'
                   }
                   action={
-                    !searchQuery && stockFilter === 'all' && !supplierFilter ? (
-                      <Button onClick={handleOpenCreate}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Product
-                      </Button>
-                    ) : undefined
+                    showAddProductAction
+                      ? {
+                          label: 'Add Product',
+                          onClick: handleOpenCreate,
+                          icon: <Plus className="h-4 w-4" />,
+                        }
+                      : undefined
                   }
                 />
               </div>
@@ -598,7 +583,8 @@ const ProductsPage: React.FC = () => {
                   <div className="p-4 border-t border-border">
                     <Pagination
                       currentPage={currentPage}
-                      totalPages={totalPages}
+                      totalItems={products.length}
+                      itemsPerPage={ITEMS_PER_PAGE}
                       onPageChange={setCurrentPage}
                     />
                   </div>
@@ -609,212 +595,252 @@ const ProductsPage: React.FC = () => {
         </Card.Root>
 
         {/* Create Product Dialog */}
-        <Dialog
+        <Dialog.Root
           open={isCreateDialogOpen}
           onOpenChange={setIsCreateDialogOpen}
-          title="Add New Product"
         >
-          <div className="space-y-4">
-            {formError && <Alert variant="error" title={formError} />}
-            <Input
-              label="Product Name"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, name: e.target.value }))
-              }
-              placeholder="Enter product name"
-            />
-            <Input
-              label="Price"
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.price}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, price: e.target.value }))
-              }
-              placeholder="0.00"
-            />
-            <Input
-              label="Stock Quantity"
-              type="number"
-              min="0"
-              value={formData.stockQuantity}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, stockQuantity: e.target.value }))
-              }
-              placeholder="0"
-            />
-            <Input
-              label="Supplier"
-              value={formData.supplier}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, supplier: e.target.value }))
-              }
-              placeholder="Enter supplier name"
-            />
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setIsCreateDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleCreate} disabled={isSubmitting}>
-                {isSubmitting ? 'Creating...' : 'Create Product'}
-              </Button>
-            </div>
-          </div>
-        </Dialog>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>Add New Product</Dialog.Title>
+                <Dialog.CloseTrigger />
+              </Dialog.Header>
+              <Dialog.Body>
+                <div className="space-y-4">
+                  {formError && <Alert variant="error" title={formError} />}
+                  <Input
+                    label="Product Name"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="Enter product name"
+                  />
+                  <Input
+                    label="Price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.price}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, price: e.target.value }))
+                    }
+                    placeholder="0.00"
+                  />
+                  <Input
+                    label="Stock Quantity"
+                    type="number"
+                    min="0"
+                    value={formData.stockQuantity}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, stockQuantity: e.target.value }))
+                    }
+                    placeholder="0"
+                  />
+                  <Input
+                    label="Supplier"
+                    value={formData.supplier}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, supplier: e.target.value }))
+                    }
+                    placeholder="Enter supplier name"
+                  />
+                </div>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsCreateDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleCreate} disabled={isSubmitting}>
+                  {isSubmitting ? 'Creating...' : 'Create Product'}
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Dialog.Root>
 
         {/* Edit Product Dialog */}
-        <Dialog
+        <Dialog.Root
           open={isEditDialogOpen}
           onOpenChange={setIsEditDialogOpen}
-          title="Edit Product"
         >
-          <div className="space-y-4">
-            {formError && <Alert variant="error" title={formError} />}
-            <Input
-              label="Product Name"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, name: e.target.value }))
-              }
-              placeholder="Enter product name"
-            />
-            <Input
-              label="Price"
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.price}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, price: e.target.value }))
-              }
-              placeholder="0.00"
-            />
-            <Input
-              label="Stock Quantity"
-              type="number"
-              min="0"
-              value={formData.stockQuantity}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, stockQuantity: e.target.value }))
-              }
-              placeholder="0"
-            />
-            <Input
-              label="Supplier"
-              value={formData.supplier}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, supplier: e.target.value }))
-              }
-              placeholder="Enter supplier name"
-            />
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleUpdate} disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </div>
-          </div>
-        </Dialog>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>Edit Product</Dialog.Title>
+                <Dialog.CloseTrigger />
+              </Dialog.Header>
+              <Dialog.Body>
+                <div className="space-y-4">
+                  {formError && <Alert variant="error" title={formError} />}
+                  <Input
+                    label="Product Name"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="Enter product name"
+                  />
+                  <Input
+                    label="Price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.price}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, price: e.target.value }))
+                    }
+                    placeholder="0.00"
+                  />
+                  <Input
+                    label="Stock Quantity"
+                    type="number"
+                    min="0"
+                    value={formData.stockQuantity}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, stockQuantity: e.target.value }))
+                    }
+                    placeholder="0"
+                  />
+                  <Input
+                    label="Supplier"
+                    value={formData.supplier}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, supplier: e.target.value }))
+                    }
+                    placeholder="Enter supplier name"
+                  />
+                </div>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdate} disabled={isSubmitting}>
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Dialog.Root>
 
         {/* Sell Product Dialog */}
-        <Dialog
+        <Dialog.Root
           open={isSellDialogOpen}
           onOpenChange={setIsSellDialogOpen}
-          title="Sell Product"
         >
-          <div className="space-y-4">
-            {formError && <Alert variant="error" title={formError} />}
-            {selectedProduct && (
-              <>
-                <div className="p-4 bg-surface-1 rounded-lg">
-                  <p className="font-medium text-headline">{selectedProduct.name}</p>
-                  <p className="text-sm text-muted">
-                    Available: {selectedProduct.stockQuantity} units
-                  </p>
-                  <p className="text-sm text-muted">
-                    Price: {formatPrice(selectedProduct.price)} per unit
-                  </p>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>Sell Product</Dialog.Title>
+                <Dialog.CloseTrigger />
+              </Dialog.Header>
+              <Dialog.Body>
+                <div className="space-y-4">
+                  {formError && <Alert variant="error" title={formError} />}
+                  {selectedProduct && (
+                    <>
+                      <div className="p-4 bg-surface-1 rounded-lg">
+                        <p className="font-medium text-headline">{selectedProduct.name}</p>
+                        <p className="text-sm text-muted">
+                          Available: {selectedProduct.stockQuantity} units
+                        </p>
+                        <p className="text-sm text-muted">
+                          Price: {formatPrice(selectedProduct.price)} per unit
+                        </p>
+                      </div>
+                      <Input
+                        label="Quantity to Sell"
+                        type="number"
+                        min="1"
+                        max={selectedProduct.stockQuantity}
+                        value={sellQuantity}
+                        onChange={(e) => setSellQuantity(e.target.value)}
+                      />
+                      <div className="p-4 bg-primary/5 rounded-lg">
+                        <p className="text-sm text-muted">Total Amount</p>
+                        <p className="text-xl font-bold text-primary">
+                          {formatPrice(
+                            selectedProduct.price * parseInt(sellQuantity || '0', 10),
+                          )}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
-                <Input
-                  label="Quantity to Sell"
-                  type="number"
-                  min="1"
-                  max={selectedProduct.stockQuantity}
-                  value={sellQuantity}
-                  onChange={(e) => setSellQuantity(e.target.value)}
-                />
-                <div className="p-4 bg-primary/5 rounded-lg">
-                  <p className="text-sm text-muted">Total Amount</p>
-                  <p className="text-xl font-bold text-primary">
-                    {formatPrice(
-                      selectedProduct.price * parseInt(sellQuantity || '0', 10),
-                    )}
-                  </p>
-                </div>
-              </>
-            )}
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setIsSellDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSell} disabled={isSubmitting}>
-                {isSubmitting ? 'Processing...' : 'Complete Sale'}
-              </Button>
-            </div>
-          </div>
-        </Dialog>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsSellDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSell} disabled={isSubmitting}>
+                  {isSubmitting ? 'Processing...' : 'Complete Sale'}
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Dialog.Root>
 
         {/* Delete Confirmation Dialog */}
-        <Dialog
+        <Dialog.Root
           open={isDeleteDialogOpen}
           onOpenChange={setIsDeleteDialogOpen}
-          title="Delete Product"
         >
-          <div className="space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="h-10 w-10 rounded-full bg-error/10 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="h-5 w-5 text-error" />
-              </div>
-              <div>
-                <p className="text-text">
-                  Are you sure you want to delete{' '}
-                  <span className="font-medium text-headline">
-                    {selectedProduct?.name}
-                  </span>
-                  ? This action cannot be undone.
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setIsDeleteDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Deleting...' : 'Delete'}
-              </Button>
-            </div>
-          </div>
-        </Dialog>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>Delete Product</Dialog.Title>
+                <Dialog.CloseTrigger />
+              </Dialog.Header>
+              <Dialog.Body>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-full bg-error/10 flex items-center justify-center flex-shrink-0">
+                      <AlertTriangle className="h-5 w-5 text-error" />
+                    </div>
+                    <div>
+                      <p className="text-text">
+                        Are you sure you want to delete{' '}
+                        <span className="font-medium text-headline">
+                          {selectedProduct?.name}
+                        </span>
+                        ? This action cannot be undone.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsDeleteDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleDelete}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Deleting...' : 'Delete'}
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Dialog.Root>
       </div>
     </>
   )
