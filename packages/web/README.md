@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![SimpleStock](public/favicon.svg)
+<img src="public/favicon.svg" alt="SimpleStock" width="64" />
 
 **A simple and intuitive inventory management system**
 
