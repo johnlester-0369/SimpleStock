@@ -8,14 +8,7 @@
  */
 
 import { Router } from 'express';
-import {
-  getSuppliers,
-  getSupplierById,
-  getSupplierNames,
-  createSupplier,
-  updateSupplier,
-  deleteSupplier,
-} from '@/controllers/supplier.controller.js';
+import { supplierController } from '@/controllers/supplier.controller.js';
 import { requireUser } from '@/middleware/user.middleware.js';
 
 const router = Router();
@@ -31,13 +24,13 @@ router.use(requireUser);
  */
 
 // Name list for dropdowns
-router.get('/names', getSupplierNames);
+router.get('/names', supplierController.getSupplierNames);
 
 // CRUD operations
-router.get('/', getSuppliers);
-router.get('/:id', getSupplierById);
-router.post('/', createSupplier);
-router.put('/:id', updateSupplier);
-router.delete('/:id', deleteSupplier);
+router.get('/', supplierController.getSuppliers);
+router.get('/:id', supplierController.getSupplierById);
+router.post('/', supplierController.createSupplier);
+router.put('/:id', supplierController.updateSupplier);
+router.delete('/:id', supplierController.deleteSupplier);
 
 export default router;

@@ -8,17 +8,7 @@
  */
 
 import { Router } from 'express';
-import {
-  getProducts,
-  getProductById,
-  getProductStats,
-  getLowStockProducts,
-  getProductSuppliers,
-  createProduct,
-  updateProduct,
-  sellProduct,
-  deleteProduct,
-} from '@/controllers/product.controller.js';
+import { productController } from '@/controllers/product.controller.js';
 import { requireUser } from '@/middleware/user.middleware.js';
 
 const router = Router();
@@ -34,16 +24,16 @@ router.use(requireUser);
  */
 
 // Statistics and aggregations
-router.get('/stats', getProductStats);
-router.get('/low-stock', getLowStockProducts);
-router.get('/suppliers', getProductSuppliers);
+router.get('/stats', productController.getProductStats);
+router.get('/low-stock', productController.getLowStockProducts);
+router.get('/suppliers', productController.getProductSuppliers);
 
 // CRUD operations
-router.get('/', getProducts);
-router.get('/:id', getProductById);
-router.post('/', createProduct);
-router.put('/:id', updateProduct);
-router.post('/:id/sell', sellProduct);
-router.delete('/:id', deleteProduct);
+router.get('/', productController.getProducts);
+router.get('/:id', productController.getProductById);
+router.post('/', productController.createProduct);
+router.put('/:id', productController.updateProduct);
+router.post('/:id/sell', productController.sellProduct);
+router.delete('/:id', productController.deleteProduct);
 
 export default router;

@@ -8,13 +8,7 @@
  */
 
 import { Router } from 'express';
-import {
-  getTransactions,
-  getTransactionById,
-  getTransactionStats,
-  getDailySales,
-  getRecentTransactions,
-} from '@/controllers/transaction.controller.js';
+import { transactionController } from '@/controllers/transaction.controller.js';
 import { requireUser } from '@/middleware/user.middleware.js';
 
 const router = Router();
@@ -30,12 +24,12 @@ router.use(requireUser);
  */
 
 // Statistics and aggregations
-router.get('/stats', getTransactionStats);
-router.get('/daily-sales', getDailySales);
-router.get('/recent', getRecentTransactions);
+router.get('/stats', transactionController.getTransactionStats);
+router.get('/daily-sales', transactionController.getDailySales);
+router.get('/recent', transactionController.getRecentTransactions);
 
 // CRUD operations
-router.get('/', getTransactions);
-router.get('/:id', getTransactionById);
+router.get('/', transactionController.getTransactions);
+router.get('/:id', transactionController.getTransactionById);
 
 export default router;
