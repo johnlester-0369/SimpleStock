@@ -7,10 +7,12 @@ import Button from '@/components/ui/Button'
 import Alert from '@/components/ui/Alert'
 import PageHead from '@/components/common/PageHead'
 import { BrandLogo, BrandName } from '@/components/common/Brand'
-import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react'
+import { Mail, Lock, LogIn, Eye, EyeOff, Info } from 'lucide-react'
 import { isValidEmail, isEmpty } from '@/validators'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { ROUTE_DASHBOARD } from '@/constants/routes.constants'
+import { isDemoMode } from '@/lib/data-source'
+import { DEMO_CREDENTIALS } from '@/lib/auth-client'
 
 /**
  * Location state interface for redirect handling
@@ -25,15 +27,19 @@ interface LocationState {
  * UserLogin Component
  *
  * Handles user authentication with:
- * - Email/password login via better-auth
+ * - Email/password login via better-auth (API mode) or localStorage (demo mode)
  * - Field-level validation
  * - Redirect to original destination after login
  * - Loading states and error handling
+ * - Demo mode credential display
  */
 const UserLogin: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { isAuthenticated, isLoading, login } = useUserAuth()
+
+  // Check if running in demo mode
+  const isDemo = isDemoMode()
 
   // Form state
   const [email, setEmail] = useState('')
@@ -124,6 +130,17 @@ const UserLogin: React.FC = () => {
     }
   }
 
+  /**
+   * Fill in demo credentials
+   */
+  const handleUseDemoCredentials = () => {
+    setEmail(DEMO_CREDENTIALS.email)
+    setPassword(DEMO_CREDENTIALS.password)
+    setEmailError('')
+    setPasswordError('')
+    setLoginError('')
+  }
+
   // Show loading state while checking auth
   if (isLoading) {
     return <LoadingSpinner />
@@ -156,6 +173,47 @@ const UserLogin: React.FC = () => {
               </h1>
               <p className="text-text">Sign in to your account to continue</p>
             </div>
+
+            {/* Demo Mode Banner */}
+            {isDemo && (
+              <div className="mb-6 p-4 bg-info/10 border border-info/30 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Info className="h-5 w-5 text-info shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-headline mb-2">
+                      Demo Mode Active
+                    </p>
+                    <p className="text-xs text-muted mb-3">
+                      This is a demo version using local storage on your browser. No server API
+                      required. Use the credentials below to sign in:
+                    </p>
+                    <div className="bg-surface-2 p-3 rounded-md space-y-1 text-xs font-mono">
+                      <p>
+                        <span className="text-muted">Email:</span>{' '}
+                        <span className="text-headline">
+                          {DEMO_CREDENTIALS.email}
+                        </span>
+                      </p>
+                      <p>
+                        <span className="text-muted">Password:</span>{' '}
+                        <span className="text-headline">
+                          {DEMO_CREDENTIALS.password}
+                        </span>
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleUseDemoCredentials}
+                      className="mt-3 text-info hover:text-info"
+                    >
+                      Use Demo Credentials
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} noValidate>
               <div className="space-y-6">

@@ -1,83 +1,63 @@
 /**
  * Transaction Service
  *
- * API client for transaction operations.
- * Communicates with the backend transaction endpoints.
+ * Exports the appropriate transaction service based on environment.
+ * - API mode: Uses HTTP client for backend communication
+ * - Demo mode: Uses localStorage for offline demo
  *
  * @module services/transaction.service
  */
 
+import { getDataSource } from '@/lib/data-source'
 import apiClient from '@/lib/api-client'
+import {
+  localTransactionService,
+  type LocalTransaction,
+  type LocalTransactionStats,
+  type LocalDailySales,
+  type LocalDailySalesResponse,
+  type GetLocalTransactionsParams,
+} from '@/lib/local-storage'
 
 // ============================================================================
-// TYPE DEFINITIONS
+// TYPE DEFINITIONS (Re-export for consumers)
 // ============================================================================
 
 /**
  * Transaction interface matching server response
  */
-export interface Transaction {
-  id: string
-  userId: string
-  productId: string
-  productName: string
-  quantity: number
-  unitPrice: number
-  totalAmount: number
-  createdAt: string
-  updatedAt: string
-}
+export type Transaction = LocalTransaction
 
 /**
  * Transaction statistics
  */
-export interface TransactionStats {
-  totalRevenue: number
-  totalTransactions: number
-  totalItemsSold: number
-  averageOrderValue: number
-}
+export type TransactionStats = LocalTransactionStats
 
 /**
  * Daily sales data
  */
-export interface DailySales {
-  date: string
-  totalAmount: number
-  transactionCount: number
-  itemsSold: number
-}
+export type DailySales = LocalDailySales
 
 /**
  * Daily sales response from API
  */
-export interface DailySalesResponse {
-  dailySales: DailySales[]
-  period: {
-    startDate: string
-    endDate: string
-  }
-}
+export type DailySalesResponse = LocalDailySalesResponse
 
 /**
  * Query parameters for fetching transactions
  */
-export interface GetTransactionsParams {
-  search?: string
-  period?: 'today' | 'week' | 'month'
-  startDate?: string
-  endDate?: string
+export type GetTransactionsParams = GetLocalTransactionsParams & {
   [key: string]: string | undefined
 }
 
 // ============================================================================
-// SERVICE CLASS
+// API SERVICE CLASS
 // ============================================================================
 
 /**
- * Transaction Service - API client for transaction operations
+ * API Transaction Service - HTTP client for transaction operations
  */
-class TransactionService {
+class ApiTransactionService {
   private readonly baseUrl = '/api/v1/admin/transactions'
 
   /**
@@ -177,5 +157,19 @@ class TransactionService {
   }
 }
 
-// Export singleton instance
-export const transactionService = new TransactionService()
+// ============================================================================
+// SERVICE EXPORT
+// ============================================================================
+
+/** API service instance */
+const apiTransactionService = new ApiTransactionService()
+
+/**
+ * Transaction service - automatically uses correct implementation based on environment.
+ *
+ * In demo mode (VITE_DATA_SOURCE=local), uses localStorage.
+ * In API mode (VITE_DATA_SOURCE=api), uses HTTP backend.
+ */
+export const transactionService = getDataSource() === 'local'
+  ? localTransactionService
+  : apiTransactionService

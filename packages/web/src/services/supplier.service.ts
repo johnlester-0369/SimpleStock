@@ -1,71 +1,57 @@
 /**
  * Supplier Service
  *
- * API client for supplier operations.
- * Communicates with the backend supplier endpoints.
+ * Exports the appropriate supplier service based on environment.
+ * - API mode: Uses HTTP client for backend communication
+ * - Demo mode: Uses localStorage for offline demo
  *
  * @module services/supplier.service
  */
 
+import { getDataSource } from '@/lib/data-source'
 import apiClient from '@/lib/api-client'
+import {
+  localSupplierService,
+  type LocalSupplier,
+  type CreateLocalSupplierData,
+  type UpdateLocalSupplierData,
+  type GetLocalSuppliersParams,
+} from '@/lib/local-storage'
 
 // ============================================================================
-// TYPE DEFINITIONS
+// TYPE DEFINITIONS (Re-export for consumers)
 // ============================================================================
 
 /**
  * Supplier interface matching server response
  */
-export interface Supplier {
-  id: string
-  userId: string
-  name: string
-  contactPerson: string
-  email: string
-  phone: string
-  address: string
-  createdAt: string
-  updatedAt: string
-}
+export type Supplier = LocalSupplier
 
 /**
  * Supplier creation input
  */
-export interface CreateSupplierData {
-  name: string
-  contactPerson: string
-  email: string
-  phone: string
-  address?: string
-}
+export type CreateSupplierData = CreateLocalSupplierData
 
 /**
  * Supplier update input (partial updates allowed)
  */
-export interface UpdateSupplierData {
-  name?: string
-  contactPerson?: string
-  email?: string
-  phone?: string
-  address?: string
-}
+export type UpdateSupplierData = UpdateLocalSupplierData
 
 /**
  * Query parameters for fetching suppliers
  */
-export interface GetSuppliersParams {
-  search?: string
+export type GetSuppliersParams = GetLocalSuppliersParams & {
   [key: string]: string | undefined
 }
 
 // ============================================================================
-// SERVICE CLASS
+// API SERVICE CLASS
 // ============================================================================
 
 /**
- * Supplier Service - API client for supplier operations
+ * API Supplier Service - HTTP client for supplier operations
  */
-class SupplierService {
+class ApiSupplierService {
   private readonly baseUrl = '/api/v1/admin/suppliers'
 
   /**
@@ -160,5 +146,19 @@ class SupplierService {
   }
 }
 
-// Export singleton instance
-export const supplierService = new SupplierService()
+// ============================================================================
+// SERVICE EXPORT
+// ============================================================================
+
+/** API service instance */
+const apiSupplierService = new ApiSupplierService()
+
+/**
+ * Supplier service - automatically uses correct implementation based on environment.
+ *
+ * In demo mode (VITE_DATA_SOURCE=local), uses localStorage.
+ * In API mode (VITE_DATA_SOURCE=api), uses HTTP backend.
+ */
+export const supplierService = getDataSource() === 'local'
+  ? localSupplierService
+  : apiSupplierService

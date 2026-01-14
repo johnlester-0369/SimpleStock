@@ -1,62 +1,48 @@
 /**
  * Product Service
  *
- * API client for product operations.
- * Communicates with the backend product endpoints.
+ * Exports the appropriate product service based on environment.
+ * - API mode: Uses HTTP client for backend communication
+ * - Demo mode: Uses localStorage for offline demo
  *
  * @module services/product.service
  */
 
+import { getDataSource } from '@/lib/data-source'
 import apiClient from '@/lib/api-client'
+import {
+  localProductService,
+  type LocalProduct,
+  type LocalProductStats,
+  type CreateLocalProductData,
+  type UpdateLocalProductData,
+  type SellLocalProductResponse,
+  type GetLocalProductsParams,
+} from '@/lib/local-storage'
 
 // ============================================================================
-// TYPE DEFINITIONS
+// TYPE DEFINITIONS (Re-export for consumers)
 // ============================================================================
 
 /**
  * Product interface matching server response
  */
-export interface Product {
-  id: string
-  userId: string
-  name: string
-  price: number
-  stockQuantity: number
-  supplier: string
-  createdAt: string
-  updatedAt: string
-}
+export type Product = LocalProduct
 
 /**
  * Product statistics
  */
-export interface ProductStats {
-  totalProducts: number
-  totalUnits: number
-  totalValue: number
-  lowStockCount: number
-  outOfStockCount: number
-}
+export type ProductStats = LocalProductStats
 
 /**
  * Product creation input
  */
-export interface CreateProductData {
-  name: string
-  price: number
-  stockQuantity: number
-  supplier: string
-}
+export type CreateProductData = CreateLocalProductData
 
 /**
  * Product update input (partial updates allowed)
  */
-export interface UpdateProductData {
-  name?: string
-  price?: number
-  stockQuantity?: number
-  supplier?: string
-}
+export type UpdateProductData = UpdateLocalProductData
 
 /**
  * Sell product input
@@ -68,19 +54,12 @@ export interface SellProductData {
 /**
  * Sell product response
  */
-export interface SellProductResponse {
-  product: Product
-  sold: number
-  totalAmount: number
-}
+export type SellProductResponse = SellLocalProductResponse
 
 /**
  * Query parameters for fetching products
  */
-export interface GetProductsParams {
-  search?: string
-  stockStatus?: 'all' | 'in-stock' | 'low-stock' | 'out-of-stock'
-  supplier?: string
+export type GetProductsParams = GetLocalProductsParams & {
   [key: string]: string | undefined
 }
 
@@ -93,13 +72,13 @@ export interface LowStockResponse {
 }
 
 // ============================================================================
-// SERVICE CLASS
+// API SERVICE CLASS
 // ============================================================================
 
 /**
- * Product Service - API client for product operations
+ * API Product Service - HTTP client for product operations
  */
-class ProductService {
+class ApiProductService {
   private readonly baseUrl = '/api/v1/admin/products'
 
   /**
@@ -246,5 +225,19 @@ class ProductService {
   }
 }
 
-// Export singleton instance
-export const productService = new ProductService()
+// ============================================================================
+// SERVICE EXPORT
+// ============================================================================
+
+/** API service instance */
+const apiProductService = new ApiProductService()
+
+/**
+ * Product service - automatically uses correct implementation based on environment.
+ *
+ * In demo mode (VITE_DATA_SOURCE=local), uses localStorage.
+ * In API mode (VITE_DATA_SOURCE=api), uses HTTP backend.
+ */
+export const productService = getDataSource() === 'local'
+  ? localProductService
+  : apiProductService
