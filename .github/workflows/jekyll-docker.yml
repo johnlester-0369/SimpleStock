@@ -30,7 +30,7 @@ jobs:
         run: cd packages/web && npm ci
 
       - name: Build Vite app
-        run: cd packages/web && npm run build
+        run: cd packages/web && npm run build:demo
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
