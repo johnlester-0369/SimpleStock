@@ -46,7 +46,7 @@ SimpleStock is a production-ready inventory management system built as a monorep
 
 Experience SimpleStock without any setup:
 
-### **[👉 https://johnlester-0369.github.io/SimpleStock](https://johnlester-0369.github.io/SimpleStock)**
+### **[👉 https://simplestock-demo.onrender.com](https://simplestock-demo.onrender.com)**
 
 **Demo Credentials:**
 | Field | Value |
@@ -69,7 +69,7 @@ Experience SimpleStock without any setup:
 
 ### Option 1: Try the Live Demo (No Setup Required)
 
-Visit **[https://johnlester-0369.github.io/SimpleStock](https://johnlester-0369.github.io/SimpleStock)** and login with:
+Visit **[https://simplestock-demo.onrender.com](https://simplestock-demo.onrender.com)** and login with:
 - **Email:** `demo@simplestock.com`
 - **Password:** `demo123456`
 
