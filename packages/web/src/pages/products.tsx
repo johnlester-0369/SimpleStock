@@ -362,8 +362,13 @@ const ProductsPage: React.FC = () => {
               Manage your product inventory and track stock levels.
             </p>
           </div>
-          <Button onClick={handleOpenCreate} className="sm:w-auto w-full">
-            <Plus className="h-4 w-4 mr-2" />
+          {/* FIX: Use leftIcon prop instead of icon as child for proper inline layout */}
+          <Button
+            variant="primary"
+            onClick={handleOpenCreate}
+            leftIcon={<Plus className="h-4 w-4" />}
+            className="sm:w-auto w-full"
+          >
             Add Product
           </Button>
         </div>
@@ -589,12 +594,13 @@ const ProductsPage: React.FC = () => {
         </Card.Root>
 
         {/* Create Product Dialog */}
+        {/* FIX: Move Dialog.Backdrop INSIDE Dialog.Positioner for correct absolute positioning */}
         <Dialog.Root
           open={isCreateDialogOpen}
           onOpenChange={setIsCreateDialogOpen}
         >
-          <Dialog.Backdrop />
           <Dialog.Positioner>
+            <Dialog.Backdrop />
             <Dialog.Content>
               <Dialog.Header>
                 <Dialog.Title>Add New Product</Dialog.Title>
@@ -658,12 +664,13 @@ const ProductsPage: React.FC = () => {
         </Dialog.Root>
 
         {/* Edit Product Dialog */}
+        {/* FIX: Move Dialog.Backdrop INSIDE Dialog.Positioner for correct absolute positioning */}
         <Dialog.Root
           open={isEditDialogOpen}
           onOpenChange={setIsEditDialogOpen}
         >
-          <Dialog.Backdrop />
           <Dialog.Positioner>
+            <Dialog.Backdrop />
             <Dialog.Content>
               <Dialog.Header>
                 <Dialog.Title>Edit Product</Dialog.Title>
@@ -727,12 +734,13 @@ const ProductsPage: React.FC = () => {
         </Dialog.Root>
 
         {/* Sell Product Dialog */}
+        {/* FIX: Move Dialog.Backdrop INSIDE Dialog.Positioner for correct absolute positioning */}
         <Dialog.Root
           open={isSellDialogOpen}
           onOpenChange={setIsSellDialogOpen}
         >
-          <Dialog.Backdrop />
           <Dialog.Positioner>
+            <Dialog.Backdrop />
             <Dialog.Content>
               <Dialog.Header>
                 <Dialog.Title>Sell Product</Dialog.Title>
@@ -788,12 +796,13 @@ const ProductsPage: React.FC = () => {
         </Dialog.Root>
 
         {/* Delete Confirmation Dialog */}
+        {/* FIX: Move Dialog.Backdrop INSIDE Dialog.Positioner for correct absolute positioning */}
         <Dialog.Root
           open={isDeleteDialogOpen}
           onOpenChange={setIsDeleteDialogOpen}
         >
-          <Dialog.Backdrop />
           <Dialog.Positioner>
+            <Dialog.Backdrop />
             <Dialog.Content>
               <Dialog.Header>
                 <Dialog.Title>Delete Product</Dialog.Title>
