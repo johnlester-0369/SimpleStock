@@ -14,7 +14,9 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/License-Private-red)](LICENSE)
 
-[Overview](#-overview) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Commands](#-make-commands) • [Packages](#-packages)
+### 🚀 [**Try the Live Demo →**](https://johnlester-0369.github.io/SimpleStock)
+
+[Overview](#-overview) • [Live Demo](#-live-demo) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Commands](#-make-commands) • [Packages](#-packages)
 
 </div>
 
@@ -40,16 +42,38 @@ SimpleStock is a production-ready inventory management system built as a monorep
 
 ---
 
+## 🎮 Live Demo
+
+Experience SimpleStock without any setup:
+
+### **[👉 https://johnlester-0369.github.io/SimpleStock](https://johnlester-0369.github.io/SimpleStock)**
+
+**Demo Credentials:**
+| Field | Value |
+|-------|-------|
+| Email | `demo@simplestock.com` |
+| Password | `demo123456` |
+
+> **Note:** The live demo runs in localStorage mode - all data is stored in your browser and persists across sessions. No backend server is required.
+
+### Demo Features
+- ✅ Full product management (add, edit, delete, sell)
+- ✅ Supplier directory management
+- ✅ Transaction history tracking
+- ✅ Dashboard with charts and analytics
+- ✅ Responsive design for mobile and desktop
+
+---
+
 ## 🚀 Quick Start
 
-### Prerequisites
+### Option 1: Try the Live Demo (No Setup Required)
 
-- **Node.js** >= 18.0.0
-- **npm** >= 9.0.0
-- **MongoDB** >= 6.0 (for API mode)
-- **GNU Make** (optional, for orchestration)
+Visit **[https://johnlester-0369.github.io/SimpleStock](https://johnlester-0369.github.io/SimpleStock)** and login with:
+- **Email:** `demo@simplestock.com`
+- **Password:** `demo123456`
 
-### Option 1: Full Stack (Recommended)
+### Option 2: Full Stack (Recommended for Development)
 
 ```bash
 # Clone and navigate to project root
@@ -74,7 +98,7 @@ make dev
 - 🔌 **API Server:** http://localhost:3000
 - ❤️ **Health Check:** http://localhost:3000/health
 
-### Option 2: Demo Mode (No Backend)
+### Option 3: Local Demo Mode (No Backend)
 
 ```bash
 cd SimpleStock/packages/web
@@ -88,7 +112,7 @@ Email:    demo@simplestock.com
 Password: demo123456
 ```
 
-### Option 3: Manual Setup
+### Option 4: Manual Setup
 
 ```bash
 # Terminal 1: Start server
@@ -637,6 +661,8 @@ This project is private and proprietary. All rights reserved.
 <div align="center">
 
 **Built with ❤️ using React, Express, TypeScript, and MongoDB**
+
+### 🎮 [**Try the Live Demo**](https://johnlester-0369.github.io/SimpleStock)
 
 [Web Package](./packages/web/) • [Server Package](./packages/server/) • [Back to Top](#simplestock-monorepo)
 
