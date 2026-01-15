@@ -130,4 +130,8 @@ export const router = createBrowserRouter([
       },
     ],
   },
-])
+],
+ {
+    basename: '/SimpleStock', //for github web pages deployment
+ }
+)
