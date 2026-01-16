@@ -3,6 +3,7 @@
  *
  * Zod schemas for product CRUD operations including
  * creation, updates, and selling.
+ * Now uses supplierId instead of supplier name.
  *
  * @module validators/product.validator
  */
@@ -13,10 +14,22 @@ import {
   priceSchema,
   stockQuantitySchema,
   sellQuantitySchema,
-  requiredString,
   validateForm,
   type ValidationResult,
 } from './common.validator'
+
+// ============================================================================
+// SUPPLIER ID SCHEMA
+// ============================================================================
+
+/**
+ * MongoDB ObjectId validation schema for supplierId.
+ * Validates 24-character hexadecimal strings.
+ */
+const supplierIdSchema = z
+  .string({ error: 'Supplier ID must be a string' })
+  .min(1, { error: 'Supplier is required' })
+  .regex(/^[a-fA-F0-9]{24}$/, { error: 'Invalid supplier ID format' })
 
 // ============================================================================
 // CREATE PRODUCT SCHEMA
@@ -24,13 +37,13 @@ import {
 
 /**
  * Schema for creating a new product.
- * All fields required.
+ * All fields required. Uses supplierId (ObjectId) for supplier reference.
  */
 export const createProductSchema = z.object({
   name: nameSchema,
   price: priceSchema,
   stockQuantity: stockQuantitySchema,
-  supplier: requiredString('Supplier'),
+  supplierId: supplierIdSchema,
 })
 
 /**
@@ -55,10 +68,9 @@ export const updateProductSchema = z.object({
     .optional(),
   price: priceSchema.optional(),
   stockQuantity: stockQuantitySchema.optional(),
-  supplier: z
-    .string({ error: 'Supplier must be a string' })
-    .trim()
-    .min(1, { error: 'Supplier cannot be empty' })
+  supplierId: z
+    .string({ error: 'Supplier ID must be a string' })
+    .regex(/^[a-fA-F0-9]{24}$/, { error: 'Invalid supplier ID format' })
     .optional(),
 })
 
@@ -115,6 +127,7 @@ export type SellProductFormData = z.infer<ReturnType<typeof createSellProductSch
 
 /**
  * Validates product creation input.
+ * Uses supplierId instead of supplier name.
  *
  * @param data - Raw form data
  * @returns ValidationResult with typed CreateProductInput
@@ -125,7 +138,7 @@ export type SellProductFormData = z.infer<ReturnType<typeof createSellProductSch
  *   name: 'Widget',
  *   price: 9.99,
  *   stockQuantity: 100,
- *   supplier: 'TechCorp'
+ *   supplierId: '507f1f77bcf86cd799439011'
  * })
  * ```
  */

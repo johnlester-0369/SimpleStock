@@ -3,21 +3,20 @@
  *
  * Mongoose schema and TypeScript interfaces for Product entity.
  * Products represent inventory items with stock tracking.
- *
- * Note: Input types are now defined in validators/product.validator.ts
- * This file focuses on the Mongoose model and response types.
+ * Supplier is now stored as an ObjectId reference to the Supplier model.
  *
  * @module models/product.model
  */
 
 import mongoose, { Schema, type Document, type Types } from 'mongoose';
+import type { ISupplier } from './supplier.model.js';
 
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 
 /**
- * Product document interface for Mongoose
+ * Product document interface for Mongoose (unpopulated)
  */
 export interface IProduct extends Document {
   _id: Types.ObjectId;
@@ -25,9 +24,16 @@ export interface IProduct extends Document {
   name: string;
   price: number;
   stockQuantity: number;
-  supplier: string;
+  supplierId: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/**
+ * Product document with populated supplier
+ */
+export interface IProductPopulated extends Omit<IProduct, 'supplierId'> {
+  supplierId: ISupplier;
 }
 
 /**
@@ -38,7 +44,7 @@ export interface CreateProductInput {
   name: string;
   price: number;
   stockQuantity: number;
-  supplier: string;
+  supplierId: string;
 }
 
 /**
@@ -49,7 +55,7 @@ export interface UpdateProductInput {
   name?: string | undefined;
   price?: number | undefined;
   stockQuantity?: number | undefined;
-  supplier?: string | undefined;
+  supplierId?: string | undefined;
 }
 
 /**
@@ -66,7 +72,7 @@ export interface ProductFilterOptions {
   userId: string;
   search?: string | undefined;
   stockStatus?: 'all' | 'in-stock' | 'low-stock' | 'out-of-stock' | undefined;
-  supplier?: string | undefined;
+  supplierId?: string | undefined;
 }
 
 /**
@@ -81,7 +87,7 @@ export interface ProductStats {
 }
 
 /**
- * Client-safe product representation (with string ID)
+ * Client-safe product representation (with string IDs)
  */
 export interface ProductResponse {
   id: string;
@@ -89,7 +95,8 @@ export interface ProductResponse {
   name: string;
   price: number;
   stockQuantity: number;
-  supplier: string;
+  supplierId: string;
+  supplierName: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -123,10 +130,11 @@ const productSchema = new Schema<IProduct>(
       min: 0,
       default: 0,
     },
-    supplier: {
-      type: String,
+    supplierId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Supplier',
       required: true,
-      trim: true,
+      index: true,
     },
   },
   {
@@ -137,7 +145,7 @@ const productSchema = new Schema<IProduct>(
 
 // Compound indexes for common queries
 productSchema.index({ userId: 1, name: 1 });
-productSchema.index({ userId: 1, supplier: 1 });
+productSchema.index({ userId: 1, supplierId: 1 });
 productSchema.index({ userId: 1, stockQuantity: 1 });
 
 // ============================================================================
@@ -151,19 +159,46 @@ export const Product = mongoose.model<IProduct>('Product', productSchema);
 // ============================================================================
 
 /**
- * Convert Mongoose Product document to client-safe response
+ * Convert populated Mongoose Product document to client-safe response.
+ * Requires the product to have supplier populated.
  *
- * @param product - Mongoose product document
+ * @param product - Mongoose product document with populated supplier
  * @returns Client-safe product response
  */
-export function toProductResponse(product: IProduct): ProductResponse {
+export function toProductResponse(product: IProductPopulated): ProductResponse {
   return {
     id: product._id.toString(),
     userId: product.userId,
     name: product.name,
     price: product.price,
     stockQuantity: product.stockQuantity,
-    supplier: product.supplier,
+    supplierId: product.supplierId._id.toString(),
+    supplierName: product.supplierId.name,
+    createdAt: product.createdAt.toISOString(),
+    updatedAt: product.updatedAt.toISOString(),
+  };
+}
+
+/**
+ * Convert unpopulated product to response (when supplier not available).
+ * Uses supplierId as both ID and name fallback.
+ *
+ * @param product - Mongoose product document (unpopulated)
+ * @param supplierName - Supplier name to use
+ * @returns Client-safe product response
+ */
+export function toProductResponseUnpopulated(
+  product: IProduct,
+  supplierName: string,
+): ProductResponse {
+  return {
+    id: product._id.toString(),
+    userId: product.userId,
+    name: product.name,
+    price: product.price,
+    stockQuantity: product.stockQuantity,
+    supplierId: product.supplierId.toString(),
+    supplierName,
     createdAt: product.createdAt.toISOString(),
     updatedAt: product.updatedAt.toISOString(),
   };

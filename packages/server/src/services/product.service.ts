@@ -9,6 +9,7 @@
  */
 
 import { productRepo } from '@/repos/product.repo.js';
+import { supplierRepo } from '@/repos/supplier.repo.js';
 import { transactionRepo } from '@/repos/transaction.repo.js';
 import {
   toProductResponse,
@@ -112,6 +113,17 @@ class ProductService {
     }
   }
 
+  /**
+   * Validates that a supplier exists and belongs to the user.
+   * @throws {ValidationError} If supplier not found
+   */
+  private async validateSupplierExists(supplierId: string, userId: string): Promise<void> {
+    const supplier = await supplierRepo.findById(supplierId, userId);
+    if (!supplier) {
+      throw new ValidationError(`Supplier with ID "${supplierId}" not found`);
+    }
+  }
+
   // ==========================================================================
   // READ OPERATIONS
   // ==========================================================================
@@ -128,14 +140,14 @@ class ProductService {
     options: {
       search?: string | undefined;
       stockStatus?: 'all' | 'in-stock' | 'low-stock' | 'out-of-stock' | undefined;
-      supplier?: string | undefined;
+      supplierId?: string | undefined;
     } = {},
   ): Promise<ProductResponse[]> {
     const filterOptions: ProductFilterOptions = {
       userId,
       search: options.search,
       stockStatus: options.stockStatus,
-      supplier: options.supplier,
+      supplierId: options.supplierId,
     };
 
     const products = await productRepo.findMany(filterOptions);
@@ -186,13 +198,14 @@ class ProductService {
   }
 
   /**
-   * Get unique supplier names from products
+   * Get unique supplier IDs from products (for backward compatibility).
+   * Note: Frontend should prefer using the supplier service directly.
    *
    * @param userId - User ID
-   * @returns Array of supplier names
+   * @returns Array of supplier IDs
    */
   async getProductSuppliers(userId: string): Promise<string[]> {
-    return productRepo.getSuppliers(userId);
+    return productRepo.getSupplierIds(userId);
   }
 
   // ==========================================================================
@@ -205,16 +218,20 @@ class ProductService {
    * @param userId - User ID
    * @param input - Product creation data (validated by Zod)
    * @returns Created product response
-   * @throws {ValidationError} If input validation fails
+   * @throws {ValidationError} If input validation fails or supplier not found
    */
   async createProduct(userId: string, input: unknown): Promise<ProductResponse> {
     const validatedInput = this.validateCreateInput(input);
+
+    // Validate supplier exists and belongs to user
+    await this.validateSupplierExists(validatedInput.supplierId, userId);
 
     const product = await productRepo.create(userId, validatedInput);
 
     logger.info('Product created via service', {
       productId: product._id.toString(),
       userId,
+      supplierId: validatedInput.supplierId,
     });
 
     return toProductResponse(product);
@@ -227,7 +244,7 @@ class ProductService {
    * @param userId - User ID
    * @param input - Update data (validated by Zod)
    * @returns Updated product response
-   * @throws {ValidationError} If input validation fails
+   * @throws {ValidationError} If input validation fails or supplier not found
    * @throws {NotFoundError} If product not found
    */
   async updateProduct(
@@ -236,6 +253,11 @@ class ProductService {
     input: unknown,
   ): Promise<ProductResponse> {
     const validatedInput = this.validateUpdateInput(input);
+
+    // If supplierId is being updated, validate it exists
+    if (validatedInput.supplierId !== undefined) {
+      await this.validateSupplierExists(validatedInput.supplierId, userId);
+    }
 
     const product = await productRepo.update(productId, userId, validatedInput);
 

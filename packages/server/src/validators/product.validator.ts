@@ -3,6 +3,7 @@
  *
  * Zod schemas for product-related operations including
  * creation, updates, selling, and filtering.
+ * Uses supplierId (ObjectId) instead of supplier name.
  *
  * @module validators/product.validator
  */
@@ -13,7 +14,6 @@ import {
   priceSchema,
   stockQuantitySchema,
   sellQuantitySchema,
-  nonEmptyStringSchema,
   searchQuerySchema,
   stockStatusSchema,
   objectIdSchema,
@@ -26,15 +26,13 @@ import {
 
 /**
  * Schema for creating a new product.
- * All fields required.
+ * All fields required. Uses supplierId (ObjectId) for supplier reference.
  */
 export const createProductSchema = z.object({
   name: nameSchema,
   price: priceSchema,
   stockQuantity: stockQuantitySchema,
-  supplier: nonEmptyStringSchema.pipe(
-    z.string().min(1, { error: 'Supplier is required' })
-  ),
+  supplierId: objectIdSchema,
 });
 
 /**
@@ -59,11 +57,7 @@ export const updateProductSchema = z.object({
     .optional(),
   price: priceSchema.optional(),
   stockQuantity: stockQuantitySchema.optional(),
-  supplier: z
-    .string({ error: 'Supplier must be a string' })
-    .trim()
-    .min(1, { error: 'Supplier cannot be empty' })
-    .optional(),
+  supplierId: objectIdSchema.optional(),
 });
 
 /**
@@ -93,11 +87,12 @@ export type SellProductInput = z.infer<typeof sellProductSchema>;
 
 /**
  * Schema for product list query parameters.
+ * Uses supplierId for filtering by supplier.
  */
 export const productFilterSchema = z.object({
   search: searchQuerySchema,
   stockStatus: stockStatusSchema,
-  supplier: z.string().trim().optional(),
+  supplierId: objectIdSchema.optional(),
 });
 
 /**
@@ -136,7 +131,7 @@ export const lowStockQuerySchema = z.object({
  *   name: 'Widget',
  *   price: 9.99,
  *   stockQuantity: 100,
- *   supplier: 'TechCorp'
+ *   supplierId: '507f1f77bcf86cd799439011'
  * });
  * ```
  */

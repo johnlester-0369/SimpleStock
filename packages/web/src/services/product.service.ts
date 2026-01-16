@@ -25,7 +25,8 @@ import {
 // ============================================================================
 
 /**
- * Product interface matching server response
+ * Product interface matching server response.
+ * Now includes supplierId and supplierName.
  */
 export type Product = LocalProduct
 
@@ -35,7 +36,7 @@ export type Product = LocalProduct
 export type ProductStats = LocalProductStats
 
 /**
- * Product creation input
+ * Product creation input - uses supplierId instead of supplier name
  */
 export type CreateProductData = CreateLocalProductData
 
@@ -57,7 +58,8 @@ export interface SellProductData {
 export type SellProductResponse = SellLocalProductResponse
 
 /**
- * Query parameters for fetching products
+ * Query parameters for fetching products.
+ * Uses supplierId for filtering.
  */
 export type GetProductsParams = GetLocalProductsParams & {
   [key: string]: string | undefined
@@ -82,7 +84,8 @@ class ApiProductService {
   private readonly baseUrl = '/api/v1/admin/products'
 
   /**
-   * Get all products with optional filters
+   * Get all products with optional filters.
+   * Accepts supplierId for filtering by supplier.
    */
   async getProducts(
     params?: GetProductsParams,
@@ -152,7 +155,9 @@ class ApiProductService {
   }
 
   /**
-   * Get unique supplier names from products
+   * Get unique supplier IDs from products.
+   * Note: Frontend should prefer using the supplier service for full supplier data.
+   * @deprecated Use supplierService.getSuppliers() instead
    */
   async getSuppliers(signal?: AbortSignal): Promise<string[]> {
     try {
@@ -168,7 +173,8 @@ class ApiProductService {
   }
 
   /**
-   * Create new product
+   * Create new product.
+   * Data should include supplierId (not supplier name).
    */
   async createProduct(data: CreateProductData): Promise<Product> {
     try {
@@ -181,7 +187,8 @@ class ApiProductService {
   }
 
   /**
-   * Update product
+   * Update product.
+   * Data can include supplierId (not supplier name).
    */
   async updateProduct(id: string, data: UpdateProductData): Promise<Product> {
     try {

@@ -113,7 +113,7 @@ class ProductController {
    * @route GET /api/v1/admin/products
    * @query search - Optional search keyword
    * @query stockStatus - Optional filter: all, in-stock, low-stock, out-of-stock
-   * @query supplier - Optional supplier name filter
+   * @query supplierId - Optional supplier ID filter
    */
   getProducts = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -121,12 +121,12 @@ class ProductController {
 
       const search = req.query.search as string | undefined;
       const stockStatus = this.parseStockStatus(req.query.stockStatus as string | undefined);
-      const supplier = req.query.supplier as string | undefined;
+      const supplierId = req.query.supplierId as string | undefined;
 
       const products = await productService.getProducts(userId, {
         search,
         stockStatus,
-        supplier,
+        supplierId,
       });
 
       res.json({ products });
@@ -192,7 +192,8 @@ class ProductController {
   };
 
   /**
-   * Get unique suppliers from products.
+   * Get unique supplier IDs from products.
+   * Note: Frontend should prefer using the supplier service directly.
    *
    * @route GET /api/v1/admin/products/suppliers
    */
@@ -217,7 +218,7 @@ class ProductController {
    * @body name - Product name (2-100 chars)
    * @body price - Product price (min $0.01)
    * @body stockQuantity - Initial stock (min 0)
-   * @body supplier - Supplier name
+   * @body supplierId - Supplier ObjectId
    */
   createProduct = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -237,7 +238,7 @@ class ProductController {
    * @body name - Optional updated name
    * @body price - Optional updated price
    * @body stockQuantity - Optional updated stock
-   * @body supplier - Optional updated supplier
+   * @body supplierId - Optional updated supplier ID
    */
   updateProduct = async (req: Request, res: Response): Promise<void> => {
     try {

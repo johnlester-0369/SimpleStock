@@ -3,6 +3,7 @@
  *
  * localStorage-based product service for demo mode.
  * Implements the same interface as the API product service.
+ * Now uses supplierId reference instead of supplier string.
  *
  * @module lib/local-storage/product.local
  */
@@ -15,13 +16,14 @@ import {
   getCurrentTimestamp,
 } from './storage.util'
 import { localTransactionService } from './transaction.local'
+import { localSupplierService } from './supplier.local'
 
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 
 /**
- * Product interface
+ * Product interface - now includes supplierId and supplierName
  */
 export interface LocalProduct {
   id: string
@@ -29,7 +31,8 @@ export interface LocalProduct {
   name: string
   price: number
   stockQuantity: number
-  supplier: string
+  supplierId: string
+  supplierName: string
   createdAt: string
   updatedAt: string
 }
@@ -46,23 +49,23 @@ export interface LocalProductStats {
 }
 
 /**
- * Create product input
+ * Create product input - uses supplierId
  */
 export interface CreateLocalProductData {
   name: string
   price: number
   stockQuantity: number
-  supplier: string
+  supplierId: string
 }
 
 /**
- * Update product input
+ * Update product input - uses supplierId
  */
 export interface UpdateLocalProductData {
   name?: string
   price?: number
   stockQuantity?: number
-  supplier?: string
+  supplierId?: string
 }
 
 /**
@@ -75,12 +78,26 @@ export interface SellLocalProductResponse {
 }
 
 /**
- * Query parameters
+ * Query parameters - uses supplierId for filtering
  */
 export interface GetLocalProductsParams {
   search?: string
   stockStatus?: 'all' | 'in-stock' | 'low-stock' | 'out-of-stock'
-  supplier?: string
+  supplierId?: string
+}
+
+/**
+ * Internal product storage format (without supplierName)
+ */
+interface StoredProduct {
+  id: string
+  userId: string
+  name: string
+  price: number
+  stockQuantity: number
+  supplierId: string
+  createdAt: string
+  updatedAt: string
 }
 
 // ============================================================================
@@ -91,14 +108,65 @@ const LOW_STOCK_THRESHOLD = 5
 const DEMO_USER_ID = 'demo-user-001'
 
 // ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Get supplier name by ID from suppliers list
+ */
+async function getSupplierName(supplierId: string): Promise<string> {
+  try {
+    const supplier = await localSupplierService.getSupplierById(supplierId)
+    return supplier.name
+  } catch {
+    return 'Unknown Supplier'
+  }
+}
+
+/**
+ * Populate supplier name for a stored product
+ */
+async function populateProduct(stored: StoredProduct): Promise<LocalProduct> {
+  const supplierName = await getSupplierName(stored.supplierId)
+  return {
+    ...stored,
+    supplierName,
+  }
+}
+
+/**
+ * Populate supplier names for multiple stored products
+ */
+async function populateProducts(stored: StoredProduct[]): Promise<LocalProduct[]> {
+  // Get all suppliers once for efficiency
+  const suppliers = await localSupplierService.getSuppliers()
+  const supplierMap = new Map(suppliers.map((s) => [s.id, s.name]))
+
+  return stored.map((p) => ({
+    ...p,
+    supplierName: supplierMap.get(p.supplierId) ?? 'Unknown Supplier',
+  }))
+}
+
+// ============================================================================
 // SEED DATA
 // ============================================================================
 
 /**
- * Default products for demo mode
+ * Default products for demo mode - now uses supplierId
  */
-function getDefaultProducts(): LocalProduct[] {
+async function getDefaultProducts(): Promise<StoredProduct[]> {
   const now = getCurrentTimestamp()
+
+  // Get suppliers to use their IDs
+  const suppliers = await localSupplierService.getSuppliers()
+  const techSupply = suppliers.find((s) => s.name === 'TechSupply Co')
+  const gadgetWorld = suppliers.find((s) => s.name === 'GadgetWorld')
+  const officeEssentials = suppliers.find((s) => s.name === 'Office Essentials')
+
+  // Fallback supplier ID if not found
+  const defaultSupplierId = suppliers[0]?.id ?? generateId()
+
   return [
     {
       id: generateId(),
@@ -106,7 +174,7 @@ function getDefaultProducts(): LocalProduct[] {
       name: 'Wireless Mouse',
       price: 29.99,
       stockQuantity: 45,
-      supplier: 'TechSupply Co',
+      supplierId: techSupply?.id ?? defaultSupplierId,
       createdAt: now,
       updatedAt: now,
     },
@@ -116,7 +184,7 @@ function getDefaultProducts(): LocalProduct[] {
       name: 'Mechanical Keyboard',
       price: 89.99,
       stockQuantity: 23,
-      supplier: 'TechSupply Co',
+      supplierId: techSupply?.id ?? defaultSupplierId,
       createdAt: now,
       updatedAt: now,
     },
@@ -126,7 +194,7 @@ function getDefaultProducts(): LocalProduct[] {
       name: 'USB-C Hub',
       price: 49.99,
       stockQuantity: 3,
-      supplier: 'GadgetWorld',
+      supplierId: gadgetWorld?.id ?? defaultSupplierId,
       createdAt: now,
       updatedAt: now,
     },
@@ -136,7 +204,7 @@ function getDefaultProducts(): LocalProduct[] {
       name: 'Webcam HD 1080p',
       price: 79.99,
       stockQuantity: 0,
-      supplier: 'GadgetWorld',
+      supplierId: gadgetWorld?.id ?? defaultSupplierId,
       createdAt: now,
       updatedAt: now,
     },
@@ -146,7 +214,7 @@ function getDefaultProducts(): LocalProduct[] {
       name: 'Monitor Stand',
       price: 34.99,
       stockQuantity: 12,
-      supplier: 'Office Essentials',
+      supplierId: officeEssentials?.id ?? defaultSupplierId,
       createdAt: now,
       updatedAt: now,
     },
@@ -156,7 +224,7 @@ function getDefaultProducts(): LocalProduct[] {
       name: 'Desk Lamp LED',
       price: 24.99,
       stockQuantity: 4,
-      supplier: 'Office Essentials',
+      supplierId: officeEssentials?.id ?? defaultSupplierId,
       createdAt: now,
       updatedAt: now,
     },
@@ -166,7 +234,7 @@ function getDefaultProducts(): LocalProduct[] {
       name: 'Laptop Stand',
       price: 44.99,
       stockQuantity: 8,
-      supplier: 'TechSupply Co',
+      supplierId: techSupply?.id ?? defaultSupplierId,
       createdAt: now,
       updatedAt: now,
     },
@@ -176,7 +244,7 @@ function getDefaultProducts(): LocalProduct[] {
       name: 'Bluetooth Speaker',
       price: 59.99,
       stockQuantity: 15,
-      supplier: 'GadgetWorld',
+      supplierId: gadgetWorld?.id ?? defaultSupplierId,
       createdAt: now,
       updatedAt: now,
     },
@@ -188,16 +256,19 @@ function getDefaultProducts(): LocalProduct[] {
 // ============================================================================
 
 /**
- * Local product service using localStorage
+ * Local product service using localStorage.
+ * Now uses supplierId reference instead of supplier name.
  */
 class LocalProductService {
   /**
    * Initialize storage with seed data if empty
    */
-  private initializeIfEmpty(): LocalProduct[] {
-    let products = getStorageItem<LocalProduct[]>(STORAGE_KEYS.PRODUCTS, [])
+  private async initializeIfEmpty(): Promise<StoredProduct[]> {
+    let products = getStorageItem<StoredProduct[]>(STORAGE_KEYS.PRODUCTS, [])
     if (products.length === 0) {
-      products = getDefaultProducts()
+      // Ensure suppliers are initialized first
+      await localSupplierService.getSuppliers()
+      products = await getDefaultProducts()
       setStorageItem(STORAGE_KEYS.PRODUCTS, products)
     }
     return products
@@ -205,7 +276,7 @@ class LocalProductService {
 
   /**
    * Get all products with optional filters
-   * @param params - Query parameters for filtering
+   * @param params - Query parameters for filtering (uses supplierId)
    * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
   async getProducts(
@@ -218,19 +289,20 @@ class LocalProductService {
     // Simulate network delay
     await new Promise((resolve) => setTimeout(resolve, 200))
 
-    let products = this.initializeIfEmpty()
+    let storedProducts = await this.initializeIfEmpty()
 
     if (params?.search) {
       const searchLower = params.search.toLowerCase()
-      products = products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(searchLower) ||
-          p.supplier.toLowerCase().includes(searchLower),
+      // Need to populate to search by supplier name
+      const populated = await populateProducts(storedProducts)
+      storedProducts = storedProducts.filter((p, i) =>
+        p.name.toLowerCase().includes(searchLower) ||
+        populated[i].supplierName.toLowerCase().includes(searchLower),
       )
     }
 
     if (params?.stockStatus && params.stockStatus !== 'all') {
-      products = products.filter((p) => {
+      storedProducts = storedProducts.filter((p) => {
         switch (params.stockStatus) {
           case 'in-stock':
             return p.stockQuantity >= LOW_STOCK_THRESHOLD
@@ -244,11 +316,12 @@ class LocalProductService {
       })
     }
 
-    if (params?.supplier) {
-      products = products.filter((p) => p.supplier === params.supplier)
+    // Filter by supplierId
+    if (params?.supplierId) {
+      storedProducts = storedProducts.filter((p) => p.supplierId === params.supplierId)
     }
 
-    return products
+    return populateProducts(storedProducts)
   }
 
   /**
@@ -262,14 +335,14 @@ class LocalProductService {
 
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    const products = this.initializeIfEmpty()
+    const products = await this.initializeIfEmpty()
     const product = products.find((p) => p.id === id)
 
     if (!product) {
       throw new Error('Product not found')
     }
 
-    return product
+    return populateProduct(product)
   }
 
   /**
@@ -282,7 +355,7 @@ class LocalProductService {
 
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    const products = this.initializeIfEmpty()
+    const products = await this.initializeIfEmpty()
 
     return {
       totalProducts: products.length,
@@ -312,7 +385,7 @@ class LocalProductService {
 
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    const products = this.initializeIfEmpty()
+    const products = await this.initializeIfEmpty()
     let lowStock = products
       .filter((p) => p.stockQuantity < LOW_STOCK_THRESHOLD)
       .sort((a, b) => a.stockQuantity - b.stockQuantity)
@@ -321,11 +394,15 @@ class LocalProductService {
       lowStock = lowStock.slice(0, limit)
     }
 
-    return { products: lowStock, threshold: LOW_STOCK_THRESHOLD }
+    return {
+      products: await populateProducts(lowStock),
+      threshold: LOW_STOCK_THRESHOLD,
+    }
   }
 
   /**
-   * Get unique supplier names
+   * Get unique supplier IDs from products.
+   * @deprecated Use supplierService.getSuppliers() instead for full supplier data
    * @param signal - AbortSignal for request cancellation (unused in local mode)
    */
   async getSuppliers(signal?: AbortSignal): Promise<string[]> {
@@ -334,28 +411,35 @@ class LocalProductService {
 
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    const products = this.initializeIfEmpty()
-    const suppliers = [...new Set(products.map((p) => p.supplier))].sort()
+    const products = await this.initializeIfEmpty()
+    const supplierIds = [...new Set(products.map((p) => p.supplierId))]
 
-    return suppliers
+    return supplierIds
   }
 
   /**
-   * Create new product
+   * Create new product - uses supplierId
    */
   async createProduct(data: CreateLocalProductData): Promise<LocalProduct> {
     await new Promise((resolve) => setTimeout(resolve, 300))
 
-    const products = this.initializeIfEmpty()
+    // Validate supplier exists
+    try {
+      await localSupplierService.getSupplierById(data.supplierId)
+    } catch {
+      throw new Error('Supplier not found')
+    }
+
+    const products = await this.initializeIfEmpty()
     const now = getCurrentTimestamp()
 
-    const newProduct: LocalProduct = {
+    const newProduct: StoredProduct = {
       id: generateId(),
       userId: DEMO_USER_ID,
       name: data.name,
       price: data.price,
       stockQuantity: data.stockQuantity,
-      supplier: data.supplier,
+      supplierId: data.supplierId,
       createdAt: now,
       updatedAt: now,
     }
@@ -363,11 +447,11 @@ class LocalProductService {
     products.push(newProduct)
     setStorageItem(STORAGE_KEYS.PRODUCTS, products)
 
-    return newProduct
+    return populateProduct(newProduct)
   }
 
   /**
-   * Update product
+   * Update product - uses supplierId
    */
   async updateProduct(
     id: string,
@@ -375,14 +459,23 @@ class LocalProductService {
   ): Promise<LocalProduct> {
     await new Promise((resolve) => setTimeout(resolve, 300))
 
-    const products = this.initializeIfEmpty()
+    // Validate supplier exists if updating
+    if (data.supplierId) {
+      try {
+        await localSupplierService.getSupplierById(data.supplierId)
+      } catch {
+        throw new Error('Supplier not found')
+      }
+    }
+
+    const products = await this.initializeIfEmpty()
     const index = products.findIndex((p) => p.id === id)
 
     if (index === -1) {
       throw new Error('Product not found')
     }
 
-    const updatedProduct: LocalProduct = {
+    const updatedProduct: StoredProduct = {
       ...products[index],
       ...data,
       updatedAt: getCurrentTimestamp(),
@@ -391,7 +484,7 @@ class LocalProductService {
     products[index] = updatedProduct
     setStorageItem(STORAGE_KEYS.PRODUCTS, products)
 
-    return updatedProduct
+    return populateProduct(updatedProduct)
   }
 
   /**
@@ -403,7 +496,7 @@ class LocalProductService {
   ): Promise<SellLocalProductResponse> {
     await new Promise((resolve) => setTimeout(resolve, 300))
 
-    const products = this.initializeIfEmpty()
+    const products = await this.initializeIfEmpty()
     const index = products.findIndex((p) => p.id === id)
 
     if (index === -1) {
@@ -419,7 +512,7 @@ class LocalProductService {
     }
 
     // Update stock
-    const updatedProduct: LocalProduct = {
+    const updatedProduct: StoredProduct = {
       ...product,
       stockQuantity: product.stockQuantity - data.quantity,
       updatedAt: getCurrentTimestamp(),
@@ -439,7 +532,7 @@ class LocalProductService {
     })
 
     return {
-      product: updatedProduct,
+      product: await populateProduct(updatedProduct),
       sold: data.quantity,
       totalAmount,
     }
@@ -451,7 +544,7 @@ class LocalProductService {
   async deleteProduct(id: string): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 300))
 
-    const products = this.initializeIfEmpty()
+    const products = await this.initializeIfEmpty()
     const index = products.findIndex((p) => p.id === id)
 
     if (index === -1) {

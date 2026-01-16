@@ -4,6 +4,9 @@
  * Custom hook for fetching and managing products with filters.
  * Uses derived loading state pattern for React best practices.
  *
+ * Note: This hook no longer fetches suppliers. Use useSuppliers hook
+ * separately for supplier data (for dropdowns, etc.).
+ *
  * @module hooks/useProducts
  */
 
@@ -20,12 +23,13 @@ import {
 // ============================================================================
 
 /**
- * Filter options for fetching products
+ * Filter options for fetching products.
+ * Uses supplierId for filtering by supplier.
  */
 interface UseProductsOptions {
   search?: string
   stockStatus?: 'all' | 'in-stock' | 'low-stock' | 'out-of-stock'
-  supplier?: string
+  supplierId?: string
 }
 
 /**
@@ -34,7 +38,6 @@ interface UseProductsOptions {
 interface UseProductsReturn {
   products: Product[]
   stats: ProductStats
-  suppliers: string[]
   loading: boolean
   error: string | null
   refetch: () => void
@@ -44,7 +47,7 @@ interface UseProductsReturn {
  * Fetch result type for internal use
  */
 type FetchResult =
-  | { success: true; products: Product[]; stats: ProductStats; suppliers: string[] }
+  | { success: true; products: Product[]; stats: ProductStats }
   | { success: false; error?: string }
 
 /**
@@ -63,18 +66,22 @@ const DEFAULT_STATS: ProductStats = {
 // ============================================================================
 
 /**
- * Custom hook to fetch and manage products with filters and stats
+ * Custom hook to fetch and manage products with filters and stats.
+ *
+ * Note: Suppliers are no longer fetched by this hook. Use the useSuppliers
+ * hook separately for supplier data (for filter dropdowns, create/edit forms).
  *
  * @example
  * ```tsx
  * const { products, stats, loading, error, refetch } = useProducts({
  *   search: 'mouse',
- *   stockStatus: 'low-stock'
+ *   stockStatus: 'low-stock',
+ *   supplierId: '507f1f77bcf86cd799439011'
  * })
  * ```
  */
 export function useProducts(options: UseProductsOptions = {}): UseProductsReturn {
-  const { search = '', stockStatus = 'all', supplier = '' } = options
+  const { search = '', stockStatus = 'all', supplierId = '' } = options
 
   // ============================================================================
   // State Management
@@ -82,7 +89,6 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsReturn
 
   const [products, setProducts] = useState<Product[]>([])
   const [stats, setStats] = useState<ProductStats>(DEFAULT_STATS)
-  const [suppliers, setSuppliers] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
 
   // Counter to force refetches with the same params
@@ -97,8 +103,8 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsReturn
 
   // Create a stable key for current fetch params
   const fetchKey = useMemo(
-    () => `${search}|${stockStatus}|${supplier}|${refetchCounter}`,
-    [search, stockStatus, supplier, refetchCounter],
+    () => `${search}|${stockStatus}|${supplierId}|${refetchCounter}`,
+    [search, stockStatus, supplierId, refetchCounter],
   )
 
   // Derive loading state
@@ -126,17 +132,15 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsReturn
         if (stockStatus !== 'all') {
           params.stockStatus = stockStatus
         }
-        if (supplier) {
-          params.supplier = supplier
+        if (supplierId) {
+          params.supplierId = supplierId
         }
 
-        // Fetch products, stats, and suppliers in parallel
-        const [fetchedProducts, fetchedStats, fetchedSuppliers] =
-          await Promise.all([
-            productService.getProducts(params, signal),
-            productService.getProductStats(signal),
-            productService.getSuppliers(signal),
-          ])
+        // Fetch products and stats in parallel (suppliers removed)
+        const [fetchedProducts, fetchedStats] = await Promise.all([
+          productService.getProducts(params, signal),
+          productService.getProductStats(signal),
+        ])
 
         if (signal.aborted) {
           return { success: false }
@@ -146,7 +150,6 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsReturn
           success: true,
           products: fetchedProducts,
           stats: fetchedStats,
-          suppliers: fetchedSuppliers,
         }
       } catch (err: unknown) {
         if (
@@ -163,7 +166,7 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsReturn
         }
       }
     },
-    [search, stockStatus, supplier],
+    [search, stockStatus, supplierId],
   )
 
   // ============================================================================
@@ -186,7 +189,6 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsReturn
       if (result.success) {
         setProducts(result.products)
         setStats(result.stats)
-        setSuppliers(result.suppliers)
         setError(null)
         setCompletedFetchKey(currentFetchKey)
       } else if (result.error) {
@@ -226,7 +228,6 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsReturn
   return {
     products,
     stats,
-    suppliers,
     loading,
     error,
     refetch,

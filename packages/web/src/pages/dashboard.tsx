@@ -630,7 +630,7 @@ const DashboardPage: React.FC = () => {
                           </Table.Cell>
                           <Table.Cell>
                             <span className="text-sm text-muted whitespace-nowrap">
-                              {product.supplier}
+                              {product.supplierName}
                             </span>
                           </Table.Cell>
                         </Table.Row>

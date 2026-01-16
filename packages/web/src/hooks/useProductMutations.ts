@@ -3,6 +3,7 @@
  *
  * Custom hook for product mutations (create, update, sell, delete).
  * Uses Zod validators for input validation.
+ * Now uses supplierId instead of supplier name.
  *
  * @module hooks/useProductMutations
  */
@@ -58,6 +59,7 @@ interface UseProductMutationsReturn {
 
 /**
  * Custom hook to handle product mutations with Zod validation.
+ * Now uses supplierId instead of supplier name.
  *
  * @example
  * ```tsx
@@ -66,12 +68,12 @@ interface UseProductMutationsReturn {
  *   onError: (message) => showError(message)
  * })
  *
- * // Create with validation
+ * // Create with validation - uses supplierId
  * const product = await createProduct({
  *   name: 'Widget',
  *   price: 9.99,
  *   stockQuantity: 100,
- *   supplier: 'TechCorp'
+ *   supplierId: '507f1f77bcf86cd799439011'
  * })
  * ```
  */
@@ -83,6 +85,7 @@ export function useProductMutations(
 
   /**
    * Create a new product with Zod validation.
+   * Uses supplierId instead of supplier name.
    */
   const createProduct = useCallback(
     async (input: CreateProductData): Promise<Product | null> => {
@@ -91,7 +94,7 @@ export function useProductMutations(
         name: input.name,
         price: input.price,
         stockQuantity: input.stockQuantity,
-        supplier: input.supplier,
+        supplierId: input.supplierId,
       })
 
       if (!validation.success) {
@@ -105,7 +108,7 @@ export function useProductMutations(
           name: sanitize(input.name),
           price: input.price,
           stockQuantity: input.stockQuantity,
-          supplier: sanitize(input.supplier),
+          supplierId: input.supplierId,
         })
 
         onSuccess?.('Product created successfully', createdProduct)
@@ -126,6 +129,7 @@ export function useProductMutations(
 
   /**
    * Update an existing product with Zod validation.
+   * Uses supplierId instead of supplier name.
    */
   const updateProduct = useCallback(
     async (id: string, input: UpdateProductData): Promise<Product | null> => {
@@ -134,7 +138,7 @@ export function useProductMutations(
         name: input.name,
         price: input.price,
         stockQuantity: input.stockQuantity,
-        supplier: input.supplier,
+        supplierId: input.supplierId,
       })
 
       if (!validation.success) {
@@ -147,8 +151,7 @@ export function useProductMutations(
         const updatedProduct = await productService.updateProduct(id, {
           ...input,
           name: input.name !== undefined ? sanitize(input.name) : undefined,
-          supplier:
-            input.supplier !== undefined ? sanitize(input.supplier) : undefined,
+          // supplierId passed through as-is (it's an ID, not user input to sanitize)
         })
 
         onSuccess?.('Product updated successfully', updatedProduct)

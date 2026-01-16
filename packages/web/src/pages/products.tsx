@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Package,
   Plus,
@@ -8,6 +8,7 @@ import {
   Trash2,
   ShoppingCart,
   AlertTriangle,
+  Truck,
 } from 'lucide-react'
 import PageHead from '@/components/common/PageHead'
 import Card from '@/components/ui/Card'
@@ -21,9 +22,11 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import Alert from '@/components/ui/Alert'
 import Pagination from '@/components/ui/Pagination'
 import { cn } from '@/utils/cn.util'
+import { ROUTE_SETTINGS_SUPPLIER } from '@/constants/routes.constants'
 
 // Import hooks
 import { useProducts } from '@/hooks/useProducts'
+import { useSuppliers } from '@/hooks/useSuppliers'
 import { useProductMutations } from '@/hooks/useProductMutations'
 import type { Product } from '@/services/product.service'
 
@@ -102,10 +105,15 @@ const isValidStockFilter = (value: string | null): value is StockFilterValue => 
  * - Sell product functionality
  * - Pagination
  * - Stock status indicators
+ * - Supplier dropdown (fetched from Supplier settings)
+ * - Empty state when no suppliers exist (redirects to supplier settings)
  */
 const ProductsPage: React.FC = () => {
   // URL search params for filter persistence
   const [searchParams, setSearchParams] = useSearchParams()
+  
+  // Navigation hook for redirecting to supplier settings
+  const navigate = useNavigate()
 
   // ============================================================================
   // STATE
@@ -129,12 +137,12 @@ const ProductsPage: React.FC = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
-  // Form states
+  // Form states - now uses supplierId instead of supplier name
   const [formData, setFormData] = useState({
     name: '',
     price: '',
     stockQuantity: '',
-    supplier: '',
+    supplierId: '',
   })
   const [sellQuantity, setSellQuantity] = useState('1')
   const [formError, setFormError] = useState('')
@@ -144,18 +152,20 @@ const ProductsPage: React.FC = () => {
   // HOOKS
   // ============================================================================
 
-  // Fetch products with filters
+  // Fetch suppliers for dropdown (from supplier settings)
+  const { suppliers: suppliersList, loading: suppliersLoading } = useSuppliers()
+
+  // Fetch products with filters - now uses supplierId
   const {
     products,
     stats,
-    suppliers,
     loading,
     error: fetchError,
     refetch,
   } = useProducts({
     search: searchQuery,
     stockStatus: stockFilter,
-    supplier: supplierFilter,
+    supplierId: supplierFilter,
   })
 
   // Product mutations
@@ -176,13 +186,19 @@ const ProductsPage: React.FC = () => {
   // DERIVED STATE
   // ============================================================================
 
-  // Supplier dropdown options
+  // Supplier dropdown options - uses supplier ID as value
   const supplierOptions = useMemo(
     () => [
       { value: '', label: 'All Suppliers' },
-      ...suppliers.map((s) => ({ value: s, label: s })),
+      ...suppliersList.map((s) => ({ value: s.id, label: s.name })),
     ],
-    [suppliers],
+    [suppliersList],
+  )
+
+  // Supplier dropdown options for create/edit forms (without "All Suppliers")
+  const supplierFormOptions = useMemo(
+    () => suppliersList.map((s) => ({ value: s.id, label: s.name })),
+    [suppliersList],
   )
 
   // Pagination
@@ -195,6 +211,13 @@ const ProductsPage: React.FC = () => {
   // ============================================================================
   // HANDLERS
   // ============================================================================
+
+  /**
+   * Handle navigation to supplier settings page
+   */
+  const handleNavigateToSupplierSettings = () => {
+    navigate(ROUTE_SETTINGS_SUPPLIER)
+  }
 
   /**
    * Handle search input change
@@ -223,7 +246,7 @@ const ProductsPage: React.FC = () => {
   }
 
   /**
-   * Handle supplier filter change
+   * Handle supplier filter change - now uses supplierId
    * Resets pagination to page 1 when filter changes
    */
   const handleSupplierFilterChange = (value: string) => {
@@ -235,13 +258,13 @@ const ProductsPage: React.FC = () => {
    * Open create dialog
    */
   const handleOpenCreate = () => {
-    setFormData({ name: '', price: '', stockQuantity: '', supplier: '' })
+    setFormData({ name: '', price: '', stockQuantity: '', supplierId: '' })
     setFormError('')
     setIsCreateDialogOpen(true)
   }
 
   /**
-   * Open edit dialog
+   * Open edit dialog - now uses supplierId
    */
   const handleOpenEdit = (product: Product) => {
     setSelectedProduct(product)
@@ -249,7 +272,7 @@ const ProductsPage: React.FC = () => {
       name: product.name,
       price: String(product.price),
       stockQuantity: String(product.stockQuantity),
-      supplier: product.supplier,
+      supplierId: product.supplierId,
     })
     setFormError('')
     setIsEditDialogOpen(true)
@@ -274,7 +297,7 @@ const ProductsPage: React.FC = () => {
   }
 
   /**
-   * Handle create product
+   * Handle create product - now sends supplierId
    */
   const handleCreate = async () => {
     setFormError('')
@@ -282,7 +305,7 @@ const ProductsPage: React.FC = () => {
       name: formData.name,
       price: parseFloat(formData.price),
       stockQuantity: parseInt(formData.stockQuantity, 10),
-      supplier: formData.supplier,
+      supplierId: formData.supplierId,
     })
     if (result) {
       setIsCreateDialogOpen(false)
@@ -290,7 +313,7 @@ const ProductsPage: React.FC = () => {
   }
 
   /**
-   * Handle update product
+   * Handle update product - now sends supplierId
    */
   const handleUpdate = async () => {
     if (!selectedProduct) return
@@ -299,7 +322,7 @@ const ProductsPage: React.FC = () => {
       name: formData.name,
       price: parseFloat(formData.price),
       stockQuantity: parseInt(formData.stockQuantity, 10),
-      supplier: formData.supplier,
+      supplierId: formData.supplierId,
     })
     if (result) {
       setIsEditDialogOpen(false)
@@ -339,8 +362,32 @@ const ProductsPage: React.FC = () => {
   // ============================================================================
 
   // Show loading state during initial load
-  if (loading && products.length === 0) {
+  if ((loading && products.length === 0) || suppliersLoading) {
     return <LoadingSpinner />
+  }
+
+  // Show empty state if no suppliers exist - user must add suppliers first
+  if (!suppliersLoading && suppliersList.length === 0) {
+    return (
+      <>
+        <PageHead
+          title="Products"
+          description="Manage your product inventory, track stock levels, and handle sales."
+        />
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <EmptyState
+            icon={Truck}
+            title="No Suppliers Available"
+            description="You need to add at least one supplier before you can manage products. Go to Supplier Settings to add your first supplier."
+            action={{
+              label: 'Go to Supplier Settings',
+              onClick: handleNavigateToSupplierSettings,
+              icon: <Plus className="h-4 w-4" />,
+            }}
+          />
+        </div>
+      </>
+    )
   }
 
   // Determine if we should show the "Add Product" action in empty state
@@ -362,7 +409,6 @@ const ProductsPage: React.FC = () => {
               Manage your product inventory and track stock levels.
             </p>
           </div>
-          {/* FIX: Use leftIcon prop instead of icon as child for proper inline layout */}
           <Button
             variant="primary"
             onClick={handleOpenCreate}
@@ -506,7 +552,7 @@ const ProductsPage: React.FC = () => {
                               </span>
                             </Table.Cell>
                             <Table.Cell>
-                              <span className="text-text">{product.supplier}</span>
+                              <span className="text-text">{product.supplierName}</span>
                             </Table.Cell>
                             <Table.Cell align="right">
                               <span className="font-medium">
@@ -594,7 +640,6 @@ const ProductsPage: React.FC = () => {
         </Card.Root>
 
         {/* Create Product Dialog */}
-        {/* FIX: Move Dialog.Backdrop INSIDE Dialog.Positioner for correct absolute positioning */}
         <Dialog.Root
           open={isCreateDialogOpen}
           onOpenChange={setIsCreateDialogOpen}
@@ -638,14 +683,26 @@ const ProductsPage: React.FC = () => {
                     }
                     placeholder="0"
                   />
-                  <Input
-                    label="Supplier"
-                    value={formData.supplier}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, supplier: e.target.value }))
-                    }
-                    placeholder="Enter supplier name"
-                  />
+                  {/* Supplier Dropdown instead of Input */}
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-1">
+                      Supplier
+                    </label>
+                    <Dropdown
+                      options={supplierFormOptions}
+                      value={formData.supplierId}
+                      onChange={(value) =>
+                        setFormData((prev) => ({ ...prev, supplierId: value }))
+                      }
+                      placeholder="Select a supplier"
+                      size="md"
+                    />
+                    {supplierFormOptions.length === 0 && (
+                      <p className="mt-1 text-sm text-warning">
+                        No suppliers available. Please add suppliers first in Settings.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </Dialog.Body>
               <Dialog.Footer>
@@ -655,7 +712,10 @@ const ProductsPage: React.FC = () => {
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleCreate} disabled={isSubmitting}>
+                <Button
+                  onClick={handleCreate}
+                  disabled={isSubmitting || !formData.supplierId}
+                >
                   {isSubmitting ? 'Creating...' : 'Create Product'}
                 </Button>
               </Dialog.Footer>
@@ -664,7 +724,6 @@ const ProductsPage: React.FC = () => {
         </Dialog.Root>
 
         {/* Edit Product Dialog */}
-        {/* FIX: Move Dialog.Backdrop INSIDE Dialog.Positioner for correct absolute positioning */}
         <Dialog.Root
           open={isEditDialogOpen}
           onOpenChange={setIsEditDialogOpen}
@@ -708,14 +767,21 @@ const ProductsPage: React.FC = () => {
                     }
                     placeholder="0"
                   />
-                  <Input
-                    label="Supplier"
-                    value={formData.supplier}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, supplier: e.target.value }))
-                    }
-                    placeholder="Enter supplier name"
-                  />
+                  {/* Supplier Dropdown instead of Input */}
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-1">
+                      Supplier
+                    </label>
+                    <Dropdown
+                      options={supplierFormOptions}
+                      value={formData.supplierId}
+                      onChange={(value) =>
+                        setFormData((prev) => ({ ...prev, supplierId: value }))
+                      }
+                      placeholder="Select a supplier"
+                      size="md"
+                    />
+                  </div>
                 </div>
               </Dialog.Body>
               <Dialog.Footer>
@@ -725,7 +791,10 @@ const ProductsPage: React.FC = () => {
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleUpdate} disabled={isSubmitting}>
+                <Button
+                  onClick={handleUpdate}
+                  disabled={isSubmitting || !formData.supplierId}
+                >
                   {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </Button>
               </Dialog.Footer>
@@ -734,7 +803,6 @@ const ProductsPage: React.FC = () => {
         </Dialog.Root>
 
         {/* Sell Product Dialog */}
-        {/* FIX: Move Dialog.Backdrop INSIDE Dialog.Positioner for correct absolute positioning */}
         <Dialog.Root
           open={isSellDialogOpen}
           onOpenChange={setIsSellDialogOpen}
@@ -753,6 +821,9 @@ const ProductsPage: React.FC = () => {
                     <>
                       <div className="p-4 bg-surface-1 rounded-lg">
                         <p className="font-medium text-headline">{selectedProduct.name}</p>
+                        <p className="text-sm text-muted">
+                          Supplier: {selectedProduct.supplierName}
+                        </p>
                         <p className="text-sm text-muted">
                           Available: {selectedProduct.stockQuantity} units
                         </p>
@@ -796,7 +867,6 @@ const ProductsPage: React.FC = () => {
         </Dialog.Root>
 
         {/* Delete Confirmation Dialog */}
-        {/* FIX: Move Dialog.Backdrop INSIDE Dialog.Positioner for correct absolute positioning */}
         <Dialog.Root
           open={isDeleteDialogOpen}
           onOpenChange={setIsDeleteDialogOpen}

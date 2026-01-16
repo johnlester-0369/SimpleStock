@@ -3,6 +3,7 @@
  *
  * Data access layer for product operations using Mongoose.
  * Handles all database interactions for products.
+ * Now uses supplierId (ObjectId reference) instead of supplier string.
  *
  * @module repos/product.repo
  */
@@ -10,7 +11,7 @@
 import {
   Product,
   LOW_STOCK_THRESHOLD,
-  type IProduct,
+  type IProductPopulated,
   type CreateProductInput,
   type UpdateProductInput,
   type ProductFilterOptions,
@@ -27,35 +28,45 @@ class ProductRepository {
    *
    * @param userId - Owner user ID
    * @param input - Product creation data
-   * @returns Created product document
+   * @returns Created product document (populated)
    */
-  async create(userId: string, input: CreateProductInput): Promise<IProduct> {
+  async create(userId: string, input: CreateProductInput): Promise<IProductPopulated> {
     const product = new Product({
       userId,
       name: input.name.trim(),
       price: input.price,
       stockQuantity: input.stockQuantity,
-      supplier: input.supplier.trim(),
+      supplierId: input.supplierId,
     });
 
     const savedProduct = await product.save();
+
+    // Populate supplier for response
+    const populatedProduct = await Product.findById(savedProduct._id)
+      .populate<{ supplierId: IProductPopulated['supplierId'] }>('supplierId')
+      .exec();
+
+    if (!populatedProduct) {
+      throw new Error('Failed to retrieve created product');
+    }
 
     logger.info('Product created', {
       productId: savedProduct._id.toString(),
       userId,
       name: savedProduct.name,
+      supplierId: input.supplierId,
     });
 
-    return savedProduct;
+    return populatedProduct as IProductPopulated;
   }
 
   /**
    * Find products with optional filters
    *
    * @param options - Filter options
-   * @returns Array of matching products
+   * @returns Array of matching products (populated)
    */
-  async findMany(options: ProductFilterOptions): Promise<IProduct[]> {
+  async findMany(options: ProductFilterOptions): Promise<IProductPopulated[]> {
     const query: Record<string, unknown> = { userId: options.userId };
 
     // Stock status filter
@@ -69,20 +80,37 @@ class ProductRepository {
       }
     }
 
-    // Supplier filter
-    if (options.supplier) {
-      query.supplier = options.supplier;
+    // Supplier filter (by supplierId)
+    if (options.supplierId) {
+      query.supplierId = options.supplierId;
     }
 
-    // Search in name and supplier
+    // Build the base query
+    let productQuery = Product.find(query);
+
+    // Search in name (supplier name search handled after populate)
     if (options.search && options.search.trim()) {
       const searchRegex = new RegExp(options.search.trim(), 'i');
-      query.$or = [{ name: searchRegex }, { supplier: searchRegex }];
+      query.name = searchRegex;
+      productQuery = Product.find(query);
     }
 
-    const products = await Product.find(query).sort({ createdAt: -1 }).exec();
+    const products = await productQuery
+      .populate<{ supplierId: IProductPopulated['supplierId'] }>('supplierId')
+      .sort({ createdAt: -1 })
+      .exec();
 
-    return products;
+    // If search is provided, also filter by supplier name (post-populate)
+    if (options.search && options.search.trim()) {
+      const searchLower = options.search.trim().toLowerCase();
+      return (products as IProductPopulated[]).filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchLower) ||
+          (p.supplierId?.name?.toLowerCase().includes(searchLower) ?? false),
+      );
+    }
+
+    return products as IProductPopulated[];
   }
 
   /**
@@ -90,16 +118,18 @@ class ProductRepository {
    *
    * @param productId - Product ID
    * @param userId - User ID
-   * @returns Product document or null
+   * @returns Product document (populated) or null
    */
-  async findById(productId: string, userId: string): Promise<IProduct | null> {
+  async findById(productId: string, userId: string): Promise<IProductPopulated | null> {
     try {
       const product = await Product.findOne({
         _id: productId,
         userId,
-      }).exec();
+      })
+        .populate<{ supplierId: IProductPopulated['supplierId'] }>('supplierId')
+        .exec();
 
-      return product;
+      return product as IProductPopulated | null;
     } catch (error) {
       // Invalid ObjectId format
       logger.debug('Invalid product ID format', {
@@ -116,13 +146,13 @@ class ProductRepository {
    * @param productId - Product ID
    * @param userId - User ID
    * @param input - Update data
-   * @returns Updated product or null
+   * @returns Updated product (populated) or null
    */
   async update(
     productId: string,
     userId: string,
     input: UpdateProductInput,
-  ): Promise<IProduct | null> {
+  ): Promise<IProductPopulated | null> {
     try {
       // Build update object (only include provided fields)
       const updateDoc: Record<string, unknown> = {};
@@ -136,8 +166,8 @@ class ProductRepository {
       if (input.stockQuantity !== undefined) {
         updateDoc.stockQuantity = input.stockQuantity;
       }
-      if (input.supplier !== undefined) {
-        updateDoc.supplier = input.supplier.trim();
+      if (input.supplierId !== undefined) {
+        updateDoc.supplierId = input.supplierId;
       }
 
       // Return current if no updates provided
@@ -149,7 +179,9 @@ class ProductRepository {
         { _id: productId, userId },
         { $set: updateDoc },
         { new: true, runValidators: true },
-      ).exec();
+      )
+        .populate<{ supplierId: IProductPopulated['supplierId'] }>('supplierId')
+        .exec();
 
       if (product) {
         logger.info('Product updated', {
@@ -159,7 +191,7 @@ class ProductRepository {
         });
       }
 
-      return product;
+      return product as IProductPopulated | null;
     } catch (error) {
       logger.debug('Error updating product', {
         productId,
@@ -175,13 +207,13 @@ class ProductRepository {
    * @param productId - Product ID
    * @param userId - User ID
    * @param quantity - Quantity to sell
-   * @returns Updated product or null if insufficient stock
+   * @returns Updated product (populated) or null if insufficient stock
    */
   async sell(
     productId: string,
     userId: string,
     quantity: number,
-  ): Promise<IProduct | null> {
+  ): Promise<IProductPopulated | null> {
     try {
       // Atomic update with stock check
       const product = await Product.findOneAndUpdate(
@@ -192,7 +224,9 @@ class ProductRepository {
         },
         { $inc: { stockQuantity: -quantity } },
         { new: true, runValidators: true },
-      ).exec();
+      )
+        .populate<{ supplierId: IProductPopulated['supplierId'] }>('supplierId')
+        .exec();
 
       if (product) {
         logger.info('Product sold', {
@@ -203,7 +237,7 @@ class ProductRepository {
         });
       }
 
-      return product;
+      return product as IProductPopulated | null;
     } catch (error) {
       logger.debug('Error selling product', {
         productId,
@@ -274,14 +308,14 @@ class ProductRepository {
   }
 
   /**
-   * Get all unique supplier names for a user
+   * Get unique supplier IDs from products for a user
    *
    * @param userId - User ID
-   * @returns Array of unique supplier names
+   * @returns Array of unique supplier IDs as strings
    */
-  async getSuppliers(userId: string): Promise<string[]> {
-    const suppliers = await Product.distinct('supplier', { userId }).exec();
-    return suppliers.sort();
+  async getSupplierIds(userId: string): Promise<string[]> {
+    const supplierIds = await Product.distinct('supplierId', { userId }).exec();
+    return supplierIds.map((id) => id.toString());
   }
 
   /**
@@ -289,18 +323,19 @@ class ProductRepository {
    *
    * @param userId - User ID
    * @param limit - Maximum number to return
-   * @returns Array of low stock products
+   * @returns Array of low stock products (populated)
    */
-  async getLowStock(userId: string, limit: number = 5): Promise<IProduct[]> {
+  async getLowStock(userId: string, limit: number = 5): Promise<IProductPopulated[]> {
     const products = await Product.find({
       userId,
       stockQuantity: { $lt: LOW_STOCK_THRESHOLD },
     })
+      .populate<{ supplierId: IProductPopulated['supplierId'] }>('supplierId')
       .sort({ stockQuantity: 1 })
       .limit(limit)
       .exec();
 
-    return products;
+    return products as IProductPopulated[];
   }
 }
 
