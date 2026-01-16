@@ -662,7 +662,7 @@ This project is private and proprietary. All rights reserved.
 
 **Built with ❤️ using React, Express, TypeScript, and MongoDB**
 
-### 🎮 [**Try the Live Demo**](https://johnlester-0369.github.io/SimpleStock)
+### 🎮 [**Try the Live Demo**](https://simplestock-demo.onrender.com)
 
 [Web Package](./packages/web/) • [Server Package](./packages/server/) • [Back to Top](#simplestock-monorepo)
 
