@@ -13,7 +13,7 @@
 import type { Request, Response } from 'express';
 import { productService } from '@/services/product.service.js';
 import { isDomainError } from '@/shared/errors.js';
-import { logger } from '@/utils/logger.util.js';
+import { logger } from '@/lib/logger.lib.js';
 
 // ============================================================================
 // TYPE DEFINITIONS

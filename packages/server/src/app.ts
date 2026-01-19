@@ -14,7 +14,7 @@ import express, {
   type NextFunction,
 } from 'express';
 import { toNodeHandler } from 'better-auth/node';
-import { logger } from '@/utils/logger.util.js';
+import { logger } from '@/lib/logger.lib.js';
 import type { AuthInstance } from '@/lib/auth.lib.js';
 
 // Import API routes

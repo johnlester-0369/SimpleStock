@@ -137,7 +137,7 @@ const logger = winston.createLogger({
  *
  * @example
  * ```typescript
- * import { logger } from '@/utils/logger.util.js';
+ * import { logger } from '@/lib/logger.lib.js';
  *
  * logger.info('Server started', { port: 3000 });
  * logger.error('Database connection failed', { error: err });

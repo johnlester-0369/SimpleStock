@@ -9,7 +9,7 @@
 
 import type { Request, Response, NextFunction } from 'express';
 import { getAuth } from '@/lib/auth.lib.js';
-import { logger } from '@/utils/logger.util.js';
+import { logger } from '@/lib/logger.lib.js';
 
 // ============================================================================
 // TYPE DEFINITIONS

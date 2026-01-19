@@ -32,7 +32,7 @@ import {
   type CreateProductInput,
   type UpdateProductInput,
 } from '@/validators/index.js';
-import { logger } from '@/utils/logger.util.js';
+import { logger } from '@/lib/logger.lib.js';
 
 // ============================================================================
 // TYPE DEFINITIONS

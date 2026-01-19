@@ -17,7 +17,7 @@ import {
   type ProductFilterOptions,
   type ProductStats,
 } from '@/models/product.model.js';
-import { logger } from '@/utils/logger.util.js';
+import { logger } from '@/lib/logger.lib.js';
 
 /**
  * Product Repository - Data access layer for product operations

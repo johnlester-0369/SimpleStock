@@ -307,6 +307,7 @@ packages/server/
 │   │   ├── auth.lib.ts        # better-auth configuration
 │   │   ├── db.lib.ts          # Mongoose connection
 │   │   └── mongo-client.lib.ts # MongoClient for auth
+│   │   └── logger.lib.ts      # Winston logger
 │   ├── middleware/
 │   │   └── user.middleware.ts # Authentication middleware
 │   ├── models/                # Mongoose schemas & types
@@ -329,8 +330,6 @@ packages/server/
 │   │   └── errors.ts          # Domain error classes
 │   ├── types/
 │   │   └── express.d.ts       # Express type augmentation
-│   ├── utils/
-│   │   └── logger.util.ts     # Winston logger
 │   ├── validators/            # Zod validation schemas
 │   │   ├── common.validator.ts
 │   │   ├── index.ts

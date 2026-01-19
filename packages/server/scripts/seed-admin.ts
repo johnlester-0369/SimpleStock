@@ -18,7 +18,7 @@
 
 import 'dotenv/config';
 import { env } from '../src/config/env.config.js';
-import { logger } from '../src/utils/logger.util.js';
+import { logger } from '../src/lib/logger.lib.js';
 import { initializeAuth } from '../src/lib/auth.lib.js';
 import {
   connectMongoClient,

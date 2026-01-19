@@ -13,7 +13,7 @@
 import type { Request, Response } from 'express';
 import { transactionService, type TransactionPeriod } from '@/services/transaction.service.js';
 import { isDomainError } from '@/shared/errors.js';
-import { logger } from '@/utils/logger.util.js';
+import { logger } from '@/lib/logger.lib.js';
 
 // ============================================================================
 // TYPE DEFINITIONS

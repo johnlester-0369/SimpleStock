@@ -16,7 +16,7 @@ import { admin } from 'better-auth/plugins';
 import { mongodbAdapter } from 'better-auth/adapters/mongodb';
 import { env } from '@/config/env.config.js';
 import { connectMongoClient } from './mongo-client.lib.js';
-import { logger } from '@/utils/logger.util.js';
+import { logger } from '@/lib/logger.lib.js';
 
 // ============================================================================
 // TYPE DEFINITIONS

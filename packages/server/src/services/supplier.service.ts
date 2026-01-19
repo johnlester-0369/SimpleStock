@@ -25,7 +25,7 @@ import {
   type CreateSupplierInput,
   type UpdateSupplierInput,
 } from '@/validators/index.js';
-import { logger } from '@/utils/logger.util.js';
+import { logger } from '@/lib/logger.lib.js';
 
 // ============================================================================
 // SERVICE CLASS

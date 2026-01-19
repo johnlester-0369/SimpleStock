@@ -13,7 +13,7 @@
 
 import { MongoClient, type Db, ServerApiVersion } from 'mongodb';
 import { env } from '@/config/env.config.js';
-import { logger } from '@/utils/logger.util.js';
+import { logger } from '@/lib/logger.lib.js';
 
 // ============================================================================
 // TYPE AUGMENTATION FOR GLOBAL CACHING

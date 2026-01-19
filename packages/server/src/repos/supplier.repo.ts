@@ -14,7 +14,7 @@ import {
   type UpdateSupplierInput,
   type SupplierFilterOptions,
 } from '@/models/supplier.model.js';
-import { logger } from '@/utils/logger.util.js';
+import { logger } from '@/lib/logger.lib.js';
 
 /**
  * Supplier Repository - Data access layer for supplier operations

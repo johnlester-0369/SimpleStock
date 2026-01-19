@@ -14,7 +14,7 @@
  */
 
 import { env } from '@/config/env.config.js';
-import { logger } from '@/utils/logger.util.js';
+import { logger } from '@/lib/logger.lib.js';
 import { initializeAuth } from '@/lib/auth.lib.js';
 import { connectToDatabase, disconnectDatabase } from '@/lib/db.lib.js';
 import { disconnectMongoClient } from '@/lib/mongo-client.lib.js';

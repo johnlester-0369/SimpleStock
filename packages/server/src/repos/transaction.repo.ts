@@ -15,7 +15,7 @@ import {
   type TransactionStats,
   type DailySales,
 } from '@/models/transaction.model.js';
-import { logger } from '@/utils/logger.util.js';
+import { logger } from '@/lib/logger.lib.js';
 
 /**
  * Transaction Repository - Data access layer for transaction operations
